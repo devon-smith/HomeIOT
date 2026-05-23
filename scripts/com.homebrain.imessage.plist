@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent for the Home Brain iMessage bridge.
+
+  Install:
+    1. Copy this file to ~/Library/LaunchAgents/com.homebrain.imessage.plist
+    2. Edit WorkingDirectory below to your repo path.
+    3. Grant Full Disk Access to /opt/node22/bin/node (or your node binary)
+       AND to /usr/bin/sqlite3 in System Settings -> Privacy & Security ->
+       Full Disk Access. Without FDA the bridge cannot read chat.db.
+    4. Grant Automation -> Messages permission to /usr/bin/osascript
+       (prompted automatically on first send attempt).
+    5. Load:  launchctl load ~/Library/LaunchAgents/com.homebrain.imessage.plist
+    6. Start: launchctl start com.homebrain.imessage
+    7. Watch: tail -f ~/Library/Logs/home-brain-imessage.log
+
+  Unload: launchctl unload ~/Library/LaunchAgents/com.homebrain.imessage.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.homebrain.imessage</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/REPLACE_ME/code/HomeIOT</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/node22/bin/node</string>
+    <string>--import</string>
+    <string>tsx/esm</string>
+    <string>scripts/imessage-bridge.ts</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>BRAIN_URL</key>
+    <string>http://localhost:3000</string>
+    <key>IMESSAGE_POLL_MS</key>
+    <string>2000</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/REPLACE_ME/Library/Logs/home-brain-imessage.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/REPLACE_ME/Library/Logs/home-brain-imessage.log</string>
+
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+</dict>
+</plist>

@@ -9,6 +9,14 @@ import { loadScenes } from "./core/scenes.js";
 import { MemoryScheduler, type Scheduler } from "./core/scheduler.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
+import { DASHBOARD_HTML } from "./web/dashboard.js";
+
+interface RecentEvent {
+  ts: string;
+  kind: string;
+  payload: unknown;
+}
+const EVENT_RING_SIZE = 200;
 
 async function main() {
   const house = loadHouse();
@@ -22,13 +30,22 @@ async function main() {
 
   await Promise.all([bus.connect(), world.connect(), connectDb()]);
 
+  // Ring buffer of recent state changes + events, surfaced by GET /events for the dashboard.
+  const recentEvents: RecentEvent[] = [];
+  const pushEvent = (kind: string, payload: unknown) => {
+    recentEvents.push({ ts: new Date().toISOString(), kind, payload });
+    if (recentEvents.length > EVENT_RING_SIZE) recentEvents.shift();
+  };
+
   bus.onState((room, device, msg) => {
     world.setDeviceState(room, device, msg).catch((err) => log.error({ err, room, device }, "world write failed"));
     log.debug({ room, device, source: msg.source, pending: msg.pending }, "state update");
+    pushEvent(`state:${room}/${device}`, { source: msg.source, pending: msg.pending, state: msg.state });
   });
 
   bus.onEvent((type, payload) => {
     log.debug({ type, payload }, "event");
+    pushEvent(`event:${type}`, payload);
     // M5+: append to audit_log here.
   });
 
@@ -79,8 +96,40 @@ async function main() {
     };
   });
 
+  app.get("/", async (_req, reply) => {
+    reply.type("text/html").send(DASHBOARD_HTML);
+  });
+
   app.get("/world", async () => {
     return await world.snapshot();
+  });
+
+  app.get("/events", async (req) => {
+    const query = req.query as { limit?: string } | undefined;
+    const limit = Math.min(EVENT_RING_SIZE, Math.max(1, parseInt(query?.limit ?? "50", 10) || 50));
+    return { events: recentEvents.slice(-limit).reverse() };
+  });
+
+  app.get("/schedule", async () => {
+    const jobs = await scheduler.list();
+    return {
+      jobs: jobs
+        .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime())
+        .map((j) => ({
+          id: j.id,
+          label: j.label,
+          fireAt: j.fireAt.toISOString(),
+          actor: j.actor,
+          actions: j.actions,
+        })),
+    };
+  });
+
+  app.post("/schedule/:id/cancel", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await scheduler.cancel(id);
+    pushEvent("schedule_cancelled", { job_id: id, by: "web" });
+    reply.code(204).send();
   });
 
   app.post("/message", async (req, reply) => {
