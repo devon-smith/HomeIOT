@@ -1,0 +1,91 @@
+# Home definition. Copy to config/house.yaml and fill in for your home.
+# Adapters read this file at startup to know which rooms/devices they own.
+
+timezone: America/Los_Angeles
+
+rooms:
+  living_room:
+    label: Living Room
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Living Room"
+      lights:
+        adapter: control4
+        config:
+          c4_proxy_id: 0  # fill in from Composer
+
+  kitchen:
+    label: Kitchen
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Kitchen"
+      lights:
+        adapter: control4
+        config:
+          c4_proxy_id: 0
+
+  theater:
+    label: Theater
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Theater"
+      tv:
+        adapter: tv
+        config:
+          brand: samsung
+          ip: 192.168.1.0  # fill in
+      lights:
+        adapter: control4
+        config:
+          c4_proxy_id: 0
+
+  backyard:
+    label: Backyard
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Backyard"
+      hot_tub:
+        adapter: iaqualink
+        config:
+          system: spa
+      pool:
+        adapter: iaqualink
+        config:
+          system: pool
+      fountain:
+        adapter: tuya
+        config:
+          device_id: ""  # fill in from tuya wizard
+
+  sauna:
+    label: Sauna
+    devices:
+      sauna:
+        adapter: tuya
+        config:
+          device_id: ""  # fill in
+
+# Zones: cross-room logical groupings the LLM can target.
+zones:
+  outdoor: [backyard]
+  upstairs: []
+  downstairs: [living_room, kitchen, theater]
+
+# Scenes will be defined in config/scenes.yaml once C4 catalog is exposed (Phase 2).
+
+# Actors: identity → permission set. See TOOL_SCHEMA.md for the permission map.
+actors:
+  owner:
+    role: owner
+    imessage_handles: []  # fill in with phone numbers / Apple IDs
+  partner:
+    role: partner
+    imessage_handles: []

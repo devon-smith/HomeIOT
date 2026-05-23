@@ -1,0 +1,134 @@
+// Home Brain — persistent state.
+// Live state lives in Redis; this is for history, scenes, schedules, audit.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Devices: catalog of what the brain knows about.
+// Source of truth for the runtime is config/house.yaml; this table is
+// hydrated on startup so we can join state history to a stable id.
+// ───────────────────────────────────────────────────────────────────
+model Device {
+  id           String   @id @default(uuid()) @db.Uuid
+  room         String
+  slug         String // "music", "lights", "hot_tub" — matches MQTT topic segment
+  adapter      String
+  capabilities Json // capability set, see TOOL_SCHEMA.md
+  config       Json // adapter-specific config (sonos_zone, c4_proxy_id, …)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stateEvents StateEvent[]
+
+  @@unique([room, slug])
+  @@map("devices")
+}
+
+// ───────────────────────────────────────────────────────────────────
+// StateEvent: append-only history of every state change.
+// Redis holds "current"; this holds "what happened".
+// ───────────────────────────────────────────────────────────────────
+model StateEvent {
+  id       BigInt   @id @default(autoincrement())
+  deviceId String   @db.Uuid
+  ts       DateTime @default(now())
+  source   String // adapter name
+  cmdId    String?  @db.Uuid // populated if event was caused by a command
+  payload  Json // the state payload (see MQTT_TOPICS.md)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, ts])
+  @@index([ts])
+  @@map("state_events")
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Scenes: composed multi-device actions. Source of truth is here
+// (config/scenes.yaml mirrors / seeds this on startup).
+// ───────────────────────────────────────────────────────────────────
+model Scene {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique
+  name        String
+  description String?
+  actions     Json // ToolCall[] — see TOOL_SCHEMA.md
+  rooms       String[] // hint for routing "movie night in the theater"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("scenes")
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Scheduled jobs: future actions. BullMQ holds the live queue; this
+// is the durable record that survives Redis flushes.
+// ───────────────────────────────────────────────────────────────────
+model ScheduledJob {
+  id         String    @id @default(uuid()) @db.Uuid
+  fireAt     DateTime
+  actionSpec Json // ToolCall or array of ToolCalls
+  label      String?
+  status     JobStatus @default(pending)
+  actor      String
+  createdAt  DateTime  @default(now())
+  firedAt    DateTime?
+  error      String?
+
+  @@index([status, fireAt])
+  @@map("scheduled_jobs")
+}
+
+enum JobStatus {
+  pending
+  fired
+  failed
+  cancelled
+}
+
+// ───────────────────────────────────────────────────────────────────
+// AuditLog: every user-initiated action and every approval decision.
+// ───────────────────────────────────────────────────────────────────
+model AuditLog {
+  id      BigInt   @id @default(autoincrement())
+  ts      DateTime @default(now())
+  actor   String
+  kind    String // "message" | "tool_call" | "approval" | "schedule_fire" | ...
+  payload Json
+
+  @@index([ts])
+  @@index([actor, ts])
+  @@map("audit_log")
+}
+
+// ───────────────────────────────────────────────────────────────────
+// Approval requests: destructive actions that need explicit confirmation.
+// ───────────────────────────────────────────────────────────────────
+model ApprovalRequest {
+  id        String         @id @default(uuid()) @db.Uuid
+  createdAt DateTime       @default(now())
+  decidedAt DateTime?
+  actor     String // who proposed
+  decidedBy String? // who approved
+  status    ApprovalStatus @default(pending)
+  toolCall  Json
+  reason    String?
+  expiresAt DateTime
+
+  @@index([status, expiresAt])
+  @@map("approval_requests")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  denied
+  expired
+}
