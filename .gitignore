@@ -8,3 +8,19 @@
 .env
 .env.local
 .env.*.local
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Prisma
+prisma/migrations/dev.db*
+
+# Local house configuration (the actual home; example stays in tree)
+config/house.yaml
+config/scenes.yaml
+
+# Logs
+logs/
+*.log
