@@ -23,17 +23,31 @@ docker compose up -d
 pnpm install
 pnpm prisma migrate dev
 
-# run the brain
+# run the brain (separate terminal)
 pnpm dev
 
-# scan your LAN for devices (separate terminal)
+# run the sonos adapter — SONOS_MODE=mock simulates a Sonos for testing;
+# omit it (or set SONOS_MODE=real) to talk to a real Sonos system
+SONOS_MODE=mock pnpm sonos
+
+# scan your LAN for devices
 pnpm discover
 
-# send a message
+# send a message — fast-path works without an API key;
+# free-text requires ANTHROPIC_API_KEY set in .env
 curl -X POST http://localhost:3000/message \
   -H 'content-type: application/json' \
-  -d '{"text": "play jazz rock in the living room"}'
+  -d '{"text": "pause music in the living room"}'
 ```
+
+## Sandbox verification
+
+`pnpm smoke` spins up an in-process MQTT broker (aedes), starts the Sonos
+adapter in mock mode, and verifies the command → state echo round-trip. No
+Docker, no Anthropic key, no Sonos hardware required — useful for CI and
+quick local sanity checks.
+
+`pnpm test` runs the classifier + normalizer unit tests.
 
 ## Repo layout
 

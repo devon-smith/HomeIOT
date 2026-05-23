@@ -29,6 +29,7 @@ export class Bus {
   private client: MqttClient | null = null;
   private stateHandlers: StateHandler[] = [];
   private eventHandlers: EventHandler[] = [];
+  private pendingCommands = new Map<string, (msg: StateMessage) => void>();
   private ready = false;
 
   async connect(): Promise<void> {
@@ -64,7 +65,12 @@ export class Bus {
       const msg = JSON.parse(payload.toString());
       if (parts.length === 4 && parts[0] === "home" && parts[3] === "state") {
         const [, room, device] = parts;
-        for (const h of this.stateHandlers) h(room!, device!, msg as StateMessage);
+        const stateMsg = msg as StateMessage;
+        for (const h of this.stateHandlers) h(room!, device!, stateMsg);
+        if (stateMsg._cmd_id) {
+          const resolver = this.pendingCommands.get(stateMsg._cmd_id);
+          if (resolver) resolver(stateMsg);
+        }
       } else if (parts.length >= 3 && parts[0] === "home" && parts[1] === "_events") {
         const type = parts.slice(2).join("/");
         for (const h of this.eventHandlers) h(type, msg);
@@ -72,6 +78,21 @@ export class Bus {
     } catch (err) {
       log.error({ err, topic }, "failed to parse mqtt payload");
     }
+  }
+
+  /** Wait for a state echo carrying _cmd_id === cmdId, or reject after timeoutMs. */
+  waitForCommand(cmdId: string, timeoutMs = 5000): Promise<StateMessage> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingCommands.delete(cmdId);
+        reject(new Error(`command ${cmdId} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.pendingCommands.set(cmdId, (msg) => {
+        clearTimeout(timer);
+        this.pendingCommands.delete(cmdId);
+        resolve(msg);
+      });
+    });
   }
 
   publishCommand(room: string, device: string, op: string, args: Record<string, unknown>, actor: string): string {
