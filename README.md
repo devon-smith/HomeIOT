@@ -10,6 +10,7 @@ This is the orchestration layer that unifies Control4, Sonos, iAquaLink, Tuya, a
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — technical deep-dive on the five-layer design and data flow.
 - [ROADMAP.md](./ROADMAP.md) — milestone roadmap (6-18 month view).
 - [docs/DATA_INGESTION_CHECKLIST.md](./docs/DATA_INGESTION_CHECKLIST.md) — everything to gather to bring this live (run through this once when you're ready to leave sandbox mode).
+- [docs/OPEN_QUESTIONS.md](./docs/OPEN_QUESTIONS.md) — every decision still to make before going live (sit down with this for a focused hour).
 - [docs/MQTT_TOPICS.md](./docs/MQTT_TOPICS.md) — the canonical topic schema everything publishes to.
 - [docs/TOOL_SCHEMA.md](./docs/TOOL_SCHEMA.md) — the tool interface Claude sees.
 - [docs/ADAPTER_GUIDE.md](./docs/ADAPTER_GUIDE.md) — how to write a new device adapter.
