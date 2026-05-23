@@ -30,6 +30,11 @@ pnpm dev
 # omit it (or set SONOS_MODE=real) to talk to a real Sonos system
 SONOS_MODE=mock pnpm sonos
 
+# run the control4 adapter (Python) — set CONTROL4_MODE=real on the Mac mini
+# after implementing the pyControl4 backend stub
+cd adapters-py/control4 && pip install -e .
+CONTROL4_MODE=mock python -m home_brain_control4.main
+
 # scan your LAN for devices
 pnpm discover
 
@@ -42,12 +47,22 @@ curl -X POST http://localhost:3000/message \
 
 ## Sandbox verification
 
-`pnpm smoke` spins up an in-process MQTT broker (aedes), starts the Sonos
-adapter in mock mode, and verifies the command → state echo round-trip. No
-Docker, no Anthropic key, no Sonos hardware required — useful for CI and
-quick local sanity checks.
+`pnpm smoke` spins up an in-process MQTT broker (aedes), starts both the
+Sonos (TS) and Control4 (Python) adapters in mock mode, and verifies:
 
-`pnpm test` runs the classifier + normalizer unit tests.
+- **§A** Sonos wire — play/pause → state echo with `_cmd_id`
+- **§B** Control4 wire — `set_lights` and `run_c4_scene` → state echoes
+- **§C** Scene engine — `run_scene movie_night` fires the C4 dealer's
+  `theater_movie` scene AND drops Sonos volume in adjacent rooms, all
+  through the real Bus + ToolRegistry. This is the M2 done-when
+  criterion proven end-to-end without hardware.
+
+No Docker, no Anthropic key, no Sonos / C4 hardware required — useful for
+CI and quick local sanity checks. Requires `paho-mqtt` and `pyyaml` in
+the Python environment.
+
+`pnpm test` runs the classifier, normalizer, scenes loader, and scene
+engine unit tests.
 
 ## Repo layout
 

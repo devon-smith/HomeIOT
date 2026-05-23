@@ -32,9 +32,11 @@ export class Bus {
   private pendingCommands = new Map<string, (msg: StateMessage) => void>();
   private ready = false;
 
+  constructor(private url: string = config.MQTT_URL) {}
+
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.client = mqtt.connect(config.MQTT_URL, {
+      this.client = mqtt.connect(this.url, {
         clientId: `${CLIENT_NAME}-${uuid().slice(0, 8)}`,
         clean: true,
         reconnectPeriod: 2000,
@@ -42,7 +44,7 @@ export class Bus {
       });
 
       this.client.once("connect", () => {
-        log.info({ url: config.MQTT_URL }, "mqtt connected");
+        log.info({ url: this.url }, "mqtt connected");
         this.ready = true;
         this.client!.subscribe(["home/+/+/state", "home/_meta/adapter/+/health", "home/_events/#"], { qos: 1 }, (err) => {
           if (err) return reject(err);
