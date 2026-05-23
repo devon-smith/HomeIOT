@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
 import { log } from "../core/log.js";
 import { type House } from "../core/house.js";
+import { type Scenes } from "../core/scenes.js";
 import { type World } from "../core/world.js";
 import { type ToolRegistry, type ToolContext } from "./registry.js";
 import { type Planner, type PlannerOutput } from "./planner.js";
@@ -13,6 +14,7 @@ const MAX_TOKENS = 4096;
 export interface ClaudePlannerDeps {
   registry: ToolRegistry;
   house: House;
+  scenes: Scenes;
   world: World;
 }
 
@@ -191,6 +193,15 @@ export class ClaudePlanner implements Planner {
       const zones = Object.entries(this.deps.house.zones).sort(([a], [b]) => a.localeCompare(b));
       for (const [zslug, members] of zones) {
         lines.push(`- ${zslug}: ${[...members].sort().join(", ")}`);
+      }
+    }
+    const sceneEntries = Object.entries(this.deps.scenes).sort(([a], [b]) => a.localeCompare(b));
+    if (sceneEntries.length) {
+      lines.push("", "## Brain-owned scenes (invoke with run_scene)");
+      for (const [slug, scene] of sceneEntries) {
+        const where = scene.rooms.length ? ` [${scene.rooms.join(", ")}]` : "";
+        const desc = scene.description ? ` — ${scene.description}` : "";
+        lines.push(`- ${slug}${where}${desc}`);
       }
     }
     return lines.join("\n");

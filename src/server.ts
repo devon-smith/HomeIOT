@@ -5,12 +5,16 @@ import { Bus } from "./core/bus.js";
 import { World } from "./core/world.js";
 import { connectDb, disconnectDb, prisma } from "./core/db.js";
 import { loadHouse } from "./core/house.js";
-import { Router, ToolRegistry, registerM1Tools, ClaudePlanner } from "./intent/index.js";
+import { loadScenes } from "./core/scenes.js";
+import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
 
 async function main() {
   const house = loadHouse();
   log.info({ rooms: Object.keys(house.rooms).length, tz: house.timezone }, "house loaded");
+
+  const scenes = loadScenes();
+  log.info({ scenes: Object.keys(scenes).length }, "scenes loaded");
 
   const bus = new Bus();
   const world = new World();
@@ -28,17 +32,17 @@ async function main() {
   });
 
   const registry = new ToolRegistry();
-  registerM1Tools(registry);
+  registerTools(registry);
 
   let planner: Planner | null = null;
   if (config.ANTHROPIC_API_KEY) {
-    planner = new ClaudePlanner({ registry, house, world }, config.ANTHROPIC_API_KEY);
+    planner = new ClaudePlanner({ registry, house, scenes, world }, config.ANTHROPIC_API_KEY);
     log.info({ model: config.ANTHROPIC_MODEL_DEFAULT }, "claude planner enabled");
   } else {
     log.warn("ANTHROPIC_API_KEY not set — falling back to fast-path-only routing");
   }
 
-  const router = new Router({ bus, world, house, registry, planner });
+  const router = new Router({ bus, world, house, scenes, registry, planner });
 
   const app = Fastify({ logger: false });
 

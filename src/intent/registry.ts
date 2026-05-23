@@ -2,6 +2,7 @@ import { type z } from "zod";
 import { type Bus } from "../core/bus.js";
 import { type World } from "../core/world.js";
 import { type House } from "../core/house.js";
+import { type Scenes } from "../core/scenes.js";
 import { type ToolCall, type ExecutionResult } from "./types.js";
 import { log } from "../core/log.js";
 
@@ -9,6 +10,8 @@ export interface ToolContext {
   bus: Bus;
   world: World;
   house: House;
+  scenes: Scenes;
+  registry: ToolRegistry;
   actor: string;
 }
 
