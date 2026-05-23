@@ -132,3 +132,30 @@ enum ApprovalStatus {
   denied
   expired
 }
+
+// ───────────────────────────────────────────────────────────────────
+// Actors: who can talk to the brain, and what they can do.
+// Yaml at config/house.yaml seeds the base set (owner, partner) at
+// startup; runtime additions (e.g. a house-sitter with `expiresAt`)
+// live here only. This table is the live source of truth.
+// ───────────────────────────────────────────────────────────────────
+model Actor {
+  id              String    @id @default(uuid()) @db.Uuid
+  slug            String    @unique // "owner", "partner", "guest_alice"
+  role            ActorRole
+  displayName     String
+  imessageHandles String[]  @default([])
+  preferences     Json      @default("{}")
+  expiresAt       DateTime? // null = permanent; set for temporary guests
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@map("actors")
+}
+
+enum ActorRole {
+  owner
+  partner
+  guest
+}

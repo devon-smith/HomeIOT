@@ -79,9 +79,13 @@ zones:
   upstairs: []
   downstairs: [living_room, kitchen, theater]
 
-# Scenes will be defined in config/scenes.yaml once C4 catalog is exposed (Phase 2).
+# Scenes live in config/scenes.yaml (see config/scenes.example.yaml). The C4
+# dealer owns Composer-internal scenes; the brain owns cross-vendor
+# compositions. Both are first-class — see ARCHITECTURE.md "Scenes".
 
-# Actors: identity → permission set. See TOOL_SCHEMA.md for the permission map.
+# Actors: base set, reconciled into the Postgres `actors` table on startup.
+# Runtime additions (e.g. temporary house-sitters with expires_at) live only
+# in the table — no yaml edit needed. See TOOL_SCHEMA.md for permissions.
 actors:
   owner:
     role: owner

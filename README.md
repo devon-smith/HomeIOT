@@ -50,7 +50,7 @@ home-brain/
 │   ├── interfaces/            http, imessage, web                    [phase 1+]
 │   └── server.ts              entry point
 ├── adapters-py/               Python adapters (control4, iaqualink, tuya) [phase 2+]
-├── config/                    house definition (rooms, devices, scenes)
+├── config/                    house definition + brain-owned scenes
 ├── scripts/                   discovery, one-off ops tools
 └── docs/                      protocol docs and adapter guide
 ```
