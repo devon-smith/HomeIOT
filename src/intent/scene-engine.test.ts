@@ -10,6 +10,7 @@ import { type ExecutionResult, type ToolCall } from "./types.js";
 import { type House } from "../core/house.js";
 import { type Bus } from "../core/bus.js";
 import { type World } from "../core/world.js";
+import { type Scheduler } from "../core/scheduler.js";
 
 function writeTemp(content: string): string {
   const p = path.join(os.tmpdir(), `scenes-${Date.now()}-${Math.random()}.yaml`);
@@ -34,6 +35,7 @@ function stubCtx(registry: ToolRegistry, scenes: Record<string, unknown> = {}): 
     world: {} as World,
     house: baseHouse,
     scenes: scenes as never,
+    scheduler: {} as Scheduler,
     registry,
     actor: "test",
   };

@@ -1,0 +1,18 @@
+[project]
+name = "home-brain-tuya"
+version = "0.1.0"
+description = "Home Brain adapter for Tuya / Smart Life devices over the LAN."
+requires-python = ">=3.10"
+dependencies = [
+    "paho-mqtt>=2.0",
+    "PyYAML>=6.0",
+    # tinytuya is added only when TUYA_MODE=real.
+    # "tinytuya>=1.13",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]

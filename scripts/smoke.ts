@@ -1,20 +1,24 @@
 /**
- * End-to-end smoke test for M1 + M2 wiring — no Docker, no real hardware,
- * no Anthropic key required.
+ * End-to-end smoke test for M1 + M2 + M3 wiring — no Docker, no real
+ * hardware, no Anthropic key required.
  *
- * Spins up an in-process MQTT broker via aedes, starts the Sonos adapter
- * (TS, mock backend) and the Control4 adapter (Python, mock backend) as
- * subprocesses, then verifies:
+ * Spins up an in-process MQTT broker via aedes, starts the Sonos (TS),
+ * Control4 (Python), iAquaLink (Python), and Tuya (Python) adapters as
+ * subprocesses, all in mock mode, then verifies:
  *
- *   §A  Sonos wire — play → state echo with _cmd_id; pause; track update
- *   §B  Control4 wire — set lights, then run_c4_scene; state echoes
+ *   §A  Sonos wire — play → state echo with _cmd_id; pause
+ *   §B  Control4 wire — set_lights and run_c4_scene; state echoes
  *   §C  Scene engine — runs the brain composition "movie_night" through
- *       the real Bus + ToolRegistry. Asserts both adapters received their
- *       commands and the engine reports ok.
+ *       the real Bus + ToolRegistry; both adapters confirm receipt
+ *   §D  Climate wire — set hot_tub target (iAquaLink) and sauna target
+ *       (Tuya climate); state echoes include current_f, target_f, heating
+ *   §E  Scheduling — schedule_action fires a future set_climate via the
+ *       in-memory MemoryScheduler; assertion verifies the scheduled action
+ *       actually reached the iAquaLink adapter
  *
- * Does not exercise: Claude planner, Postgres, Redis (those need real
- * services). Run locally with `docker compose up` + `pnpm dev` for the
- * full stack demo.
+ * Does not exercise: Claude planner, Postgres, Redis, BullMQ durability.
+ * Run locally with `docker compose up` + `pnpm dev` for the full stack
+ * demo.
  */
 
 import { Aedes } from "aedes";
@@ -31,6 +35,7 @@ import { fileURLToPath } from "node:url";
 import { Bus } from "../src/core/bus.js";
 import { loadHouse } from "../src/core/house.js";
 import { loadScenes } from "../src/core/scenes.js";
+import { MemoryScheduler } from "../src/core/scheduler.js";
 import { ToolRegistry, registerTools } from "../src/intent/index.js";
 import { type World } from "../src/core/world.js";
 
@@ -135,6 +140,26 @@ async function main() {
     c4.stderr?.on("data", (d) => process.stderr.write(`[c4] ${d}`));
     subprocesses.push(c4);
 
+    // Spawn Python iAquaLink adapter
+    const iaqualink = spawn("python3", ["-u", "-m", "home_brain_iaqualink.main"], {
+      cwd: path.join(ROOT, "adapters-py/iaqualink"),
+      env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, IAQUALINK_MODE: "mock", LOG_LEVEL: "INFO" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    iaqualink.stdout?.on("data", (d) => process.stdout.write(`[iaq] ${d}`));
+    iaqualink.stderr?.on("data", (d) => process.stderr.write(`[iaq] ${d}`));
+    subprocesses.push(iaqualink);
+
+    // Spawn Python Tuya adapter
+    const tuya = spawn("python3", ["-u", "-m", "home_brain_tuya.main"], {
+      cwd: path.join(ROOT, "adapters-py/tuya"),
+      env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, TUYA_MODE: "mock", LOG_LEVEL: "INFO" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    tuya.stdout?.on("data", (d) => process.stdout.write(`[tuya] ${d}`));
+    tuya.stderr?.on("data", (d) => process.stderr.write(`[tuya] ${d}`));
+    subprocesses.push(tuya);
+
     // Control client for raw §A and §B
     client = mqtt.connect(`mqtt://localhost:${BROKER_PORT}`, { clientId: `smoke-${uuid().slice(0, 8)}` });
     await new Promise<void>((r) => client!.once("connect", () => r()));
@@ -142,19 +167,24 @@ async function main() {
 
     const sonosHealth = awaiter<unknown>();
     const c4Health = awaiter<unknown>();
+    const iaqHealth = awaiter<unknown>();
+    const tuyaHealth = awaiter<unknown>();
     client.subscribe(["home/_meta/adapter/+/health"], { qos: 1 });
     client.on("message", (topic, payload) => {
       const msg = JSON.parse(payload.toString());
-      if (topic === "home/_meta/adapter/sonos/health" && (msg as { online?: boolean }).online !== false) sonosHealth.resolve(msg);
-      if (topic === "home/_meta/adapter/control4/health" && (msg as { online?: boolean }).online !== false) c4Health.resolve(msg);
+      if ((msg as { online?: boolean }).online === false) return;
+      if (topic === "home/_meta/adapter/sonos/health") sonosHealth.resolve(msg);
+      if (topic === "home/_meta/adapter/control4/health") c4Health.resolve(msg);
+      if (topic === "home/_meta/adapter/iaqualink/health") iaqHealth.resolve(msg);
+      if (topic === "home/_meta/adapter/tuya/health") tuyaHealth.resolve(msg);
     });
 
-    log("waiting for adapter healths...");
+    log("waiting for all 4 adapter healths...");
     await Promise.race([
-      Promise.all([sonosHealth.promise, c4Health.promise]),
+      Promise.all([sonosHealth.promise, c4Health.promise, iaqHealth.promise, tuyaHealth.promise]),
       sleep(20_000).then(() => Promise.reject(new Error("health timeout"))),
     ]);
-    log("both adapters healthy");
+    log("all adapters healthy");
 
     // ──────────────────────────────────────────────────────────────────
     // §A — Sonos wire
@@ -231,9 +261,26 @@ async function main() {
       getDeviceState: async () => null,
     } as unknown as World;
 
+    // Capture scheduled fires for §E
+    const scheduledFires: { jobId: string; actions: string[] }[] = [];
+    const scheduler = new MemoryScheduler(async (job) => {
+      scheduledFires.push({ jobId: job.id, actions: job.actions.map((a) => a.tool) });
+      for (const action of job.actions) {
+        await registry.run(action, {
+          bus: bus!,
+          world: fakeWorld,
+          house,
+          scenes,
+          scheduler,
+          registry,
+          actor: job.actor,
+        });
+      }
+    });
+
     const result = await registry.run(
       { tool: "run_scene", args: { scene: "movie_night" } },
-      { bus, world: fakeWorld, house, scenes, registry, actor: "owner" },
+      { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
     );
 
     assert("scene engine reports ok", result.ok);
@@ -252,6 +299,68 @@ async function main() {
       "scene includes two set_music steps",
       stepResults.filter((s) => s.tool === "set_music").length === 2,
     );
+
+    // ──────────────────────────────────────────────────────────────────
+    // §D — Climate wire (iAquaLink hot_tub + Tuya sauna)
+    // ──────────────────────────────────────────────────────────────────
+    log("\n=== §D: Climate wire (iAquaLink + Tuya) ===");
+    {
+      const r = await registry.run(
+        { tool: "set_climate", args: { zone: "hot_tub", target_f: 102 } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("hot_tub set_climate ok", r.ok);
+      const s = r.state as Record<string, unknown> | undefined;
+      assert("hot_tub target_f == 102", s?.["target_f"] === 102);
+      assert("hot_tub mode == heat", s?.["mode"] === "heat");
+      assert("hot_tub heating == true", s?.["heating"] === true);
+    }
+    {
+      const r = await registry.run(
+        { tool: "set_climate", args: { zone: "sauna", target_f: 180 } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("sauna set_climate ok", r.ok);
+      const s = r.state as Record<string, unknown> | undefined;
+      assert("sauna target_f == 180", s?.["target_f"] === 180);
+      assert("sauna mode == heat", s?.["mode"] === "heat");
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // §E — schedule_action fires a future set_climate
+    // ──────────────────────────────────────────────────────────────────
+    log("\n=== §E: schedule_action ===");
+    const fireAt = new Date(Date.now() + 1500).toISOString();
+    const sched = await registry.run(
+      {
+        tool: "schedule_action",
+        args: {
+          when: fireAt,
+          actions: [{ tool: "set_climate", args: { zone: "hot_tub", target_f: 104 } }],
+          label: "warm hot tub for smoke test",
+        },
+      },
+      { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+    );
+    assert("schedule_action ok", sched.ok);
+    assert("schedule_action returns jobId", typeof (sched.state as Record<string, unknown> | undefined)?.["jobId"] === "string");
+
+    log("waiting ~2s for the scheduled job to fire...");
+    await sleep(2500);
+    assert("scheduled job fired", scheduledFires.length === 1);
+    assert("scheduled job ran set_climate", scheduledFires[0]?.actions.includes("set_climate") ?? false);
+
+    // Verify the scheduled action actually reached the iAquaLink adapter by
+    // querying the world model snapshot from the broker (retained state)
+    const finalState = awaiter<{ state: Record<string, unknown> }>();
+    client.subscribe("home/backyard/hot_tub/state", { qos: 1 });
+    client.once("message", (topic, payload) => {
+      if (topic === "home/backyard/hot_tub/state") {
+        finalState.resolve(JSON.parse(payload.toString()));
+      }
+    });
+    const f = await Promise.race([finalState.promise, sleep(2000).then(() => null)]);
+    assert("scheduled set_climate updated hot_tub state", f !== null && (f.state as Record<string, unknown>)["target_f"] === 104);
 
     console.log("");
     if (failures.length === 0) {

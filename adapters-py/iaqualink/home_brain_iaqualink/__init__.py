@@ -1,0 +1,1 @@
+"""Home Brain iAquaLink adapter."""

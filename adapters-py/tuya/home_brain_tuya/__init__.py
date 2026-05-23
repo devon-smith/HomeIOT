@@ -1,0 +1,1 @@
+"""Home Brain Tuya adapter."""

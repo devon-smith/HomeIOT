@@ -3,6 +3,7 @@ import { type Bus } from "../core/bus.js";
 import { type World } from "../core/world.js";
 import { type House } from "../core/house.js";
 import { type Scenes } from "../core/scenes.js";
+import { type Scheduler } from "../core/scheduler.js";
 import { type ToolCall, type ExecutionResult } from "./types.js";
 import { log } from "../core/log.js";
 
@@ -11,6 +12,7 @@ export interface ToolContext {
   world: World;
   house: House;
   scenes: Scenes;
+  scheduler: Scheduler;
   registry: ToolRegistry;
   actor: string;
 }

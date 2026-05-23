@@ -63,7 +63,9 @@ rooms:
       fountain:
         adapter: tuya
         config:
-          device_id: ""  # fill in from tuya wizard
+          kind: switch       # on/off only
+          device_id: ""      # fill in from `tinytuya wizard`
+          local_key: ""      # fill in from `tinytuya wizard`
 
   sauna:
     label: Sauna
@@ -71,7 +73,9 @@ rooms:
       sauna:
         adapter: tuya
         config:
-          device_id: ""  # fill in
+          kind: climate      # set_target / set_mode + temperature reads
+          device_id: ""      # fill in
+          local_key: ""      # fill in
 
 # Zones: cross-room logical groupings the LLM can target.
 zones:
