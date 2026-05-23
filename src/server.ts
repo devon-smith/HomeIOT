@@ -6,6 +6,7 @@ import { World } from "./core/world.js";
 import { connectDb, disconnectDb, prisma } from "./core/db.js";
 import { loadHouse } from "./core/house.js";
 import { loadScenes } from "./core/scenes.js";
+import { MemoryScheduler, type Scheduler } from "./core/scheduler.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
 
@@ -34,6 +35,25 @@ async function main() {
   const registry = new ToolRegistry();
   registerTools(registry);
 
+  // In-memory scheduler. Swap for BullMQScheduler on the Mac mini for
+  // reboot-durable scheduling (see src/core/scheduler.ts).
+  const scheduler: Scheduler = new MemoryScheduler(async (job) => {
+    const ctx = { bus, world, house, scenes, scheduler, registry, actor: job.actor };
+    log.info({ jobId: job.id, label: job.label, actions: job.actions.length }, "scheduled job firing");
+    for (const action of job.actions) {
+      const result = await registry.run(action, ctx);
+      log.info({ jobId: job.id, action: action.tool, ok: result.ok }, "scheduled action result");
+      bus.publishEvent("schedule_fired", {
+        job_id: job.id,
+        fired_at: new Date().toISOString(),
+        action: action.tool,
+        ok: result.ok,
+        message: result.message,
+      });
+    }
+  });
+  await scheduler.loadPending();
+
   let planner: Planner | null = null;
   if (config.ANTHROPIC_API_KEY) {
     planner = new ClaudePlanner({ registry, house, scenes, world }, config.ANTHROPIC_API_KEY);
@@ -42,7 +62,7 @@ async function main() {
     log.warn("ANTHROPIC_API_KEY not set — falling back to fast-path-only routing");
   }
 
-  const router = new Router({ bus, world, house, scenes, registry, planner });
+  const router = new Router({ bus, world, house, scenes, scheduler, registry, planner });
 
   const app = Fastify({ logger: false });
 
@@ -88,6 +108,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     log.info({ signal }, "shutting down");
     await app.close().catch(() => {});
+    await scheduler.close().catch(() => {});
     await bus.disconnect().catch(() => {});
     await world.disconnect().catch(() => {});
     await disconnectDb().catch(() => {});

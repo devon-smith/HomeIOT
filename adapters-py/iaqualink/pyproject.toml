@@ -1,0 +1,18 @@
+[project]
+name = "home-brain-iaqualink"
+version = "0.1.0"
+description = "Home Brain adapter for iAquaLink (Jandy/Zodiac) pools and spas."
+requires-python = ">=3.10"
+dependencies = [
+    "paho-mqtt>=2.0",
+    "PyYAML>=6.0",
+    # iaqualink-py is added only when IAQUALINK_MODE=real.
+    # "iaqualink>=0.5",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]

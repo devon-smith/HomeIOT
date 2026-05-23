@@ -2,6 +2,7 @@ import { type Bus } from "../core/bus.js";
 import { type World } from "../core/world.js";
 import { type House } from "../core/house.js";
 import { type Scenes } from "../core/scenes.js";
+import { type Scheduler } from "../core/scheduler.js";
 import { log } from "../core/log.js";
 import { normalize } from "./normalize.js";
 import { classify } from "./classifier.js";
@@ -15,6 +16,7 @@ export interface RouterDeps {
   world: World;
   house: House;
   scenes: Scenes;
+  scheduler: Scheduler;
   registry: ToolRegistry;
   planner: Planner | null;
 }
@@ -30,6 +32,7 @@ export class Router {
       world: this.deps.world,
       house: this.deps.house,
       scenes: this.deps.scenes,
+      scheduler: this.deps.scheduler,
       registry: this.deps.registry,
       actor,
     };

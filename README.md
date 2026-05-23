@@ -30,10 +30,11 @@ pnpm dev
 # omit it (or set SONOS_MODE=real) to talk to a real Sonos system
 SONOS_MODE=mock pnpm sonos
 
-# run the control4 adapter (Python) — set CONTROL4_MODE=real on the Mac mini
-# after implementing the pyControl4 backend stub
-cd adapters-py/control4 && pip install -e .
-CONTROL4_MODE=mock python -m home_brain_control4.main
+# run the python adapters — set *_MODE=real on the Mac mini after
+# implementing each adapter's real-backend stub
+cd adapters-py/control4 && pip install -e . && CONTROL4_MODE=mock python -m home_brain_control4.main &
+cd adapters-py/iaqualink && pip install -e . && IAQUALINK_MODE=mock python -m home_brain_iaqualink.main &
+cd adapters-py/tuya && pip install -e . && TUYA_MODE=mock python -m home_brain_tuya.main &
 
 # scan your LAN for devices
 pnpm discover
@@ -47,22 +48,27 @@ curl -X POST http://localhost:3000/message \
 
 ## Sandbox verification
 
-`pnpm smoke` spins up an in-process MQTT broker (aedes), starts both the
-Sonos (TS) and Control4 (Python) adapters in mock mode, and verifies:
+`pnpm smoke` spins up an in-process MQTT broker (aedes), starts the
+Sonos (TS), Control4 (Python), iAquaLink (Python), and Tuya (Python)
+adapters in mock mode, and verifies:
 
 - **§A** Sonos wire — play/pause → state echo with `_cmd_id`
 - **§B** Control4 wire — `set_lights` and `run_c4_scene` → state echoes
 - **§C** Scene engine — `run_scene movie_night` fires the C4 dealer's
-  `theater_movie` scene AND drops Sonos volume in adjacent rooms, all
-  through the real Bus + ToolRegistry. This is the M2 done-when
-  criterion proven end-to-end without hardware.
+  `theater_movie` scene AND drops Sonos volume in adjacent rooms (M2
+  done-when criterion)
+- **§D** Climate wire — `set_climate hot_tub target_f=102` (iAquaLink)
+  and `set_climate sauna target_f=180` (Tuya climate)
+- **§E** Scheduling — `schedule_action` fires a future `set_climate` via
+  the in-memory scheduler; verifies the scheduled command reaches the
+  iAquaLink adapter (M3 done-when criterion, minus reboot durability
+  which needs BullMQ + Postgres on the Mac mini)
 
-No Docker, no Anthropic key, no Sonos / C4 hardware required — useful for
-CI and quick local sanity checks. Requires `paho-mqtt` and `pyyaml` in
-the Python environment.
+No Docker, no Anthropic key, no real hardware required. Requires
+`paho-mqtt` and `pyyaml` in the Python environment.
 
-`pnpm test` runs the classifier, normalizer, scenes loader, and scene
-engine unit tests.
+`pnpm test` runs the classifier, normalizer, scenes loader, scene
+engine, scheduler, and schedule_action validation tests.
 
 ## Repo layout
 
