@@ -160,6 +160,16 @@ async function main() {
     tuya.stderr?.on("data", (d) => process.stderr.write(`[tuya] ${d}`));
     subprocesses.push(tuya);
 
+    // Spawn TS TV adapter
+    const tv = spawn("pnpm", ["tv"], {
+      cwd: ROOT,
+      env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, TV_MODE: "mock", LOG_LEVEL: "info" },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    tv.stdout?.on("data", (d) => process.stdout.write(`[tv] ${d}`));
+    tv.stderr?.on("data", (d) => process.stderr.write(`[tv] ${d}`));
+    subprocesses.push(tv);
+
     // Control client for raw §A and §B
     client = mqtt.connect(`mqtt://localhost:${BROKER_PORT}`, { clientId: `smoke-${uuid().slice(0, 8)}` });
     await new Promise<void>((r) => client!.once("connect", () => r()));
@@ -169,6 +179,7 @@ async function main() {
     const c4Health = awaiter<unknown>();
     const iaqHealth = awaiter<unknown>();
     const tuyaHealth = awaiter<unknown>();
+    const tvHealth = awaiter<unknown>();
     client.subscribe(["home/_meta/adapter/+/health"], { qos: 1 });
     client.on("message", (topic, payload) => {
       const msg = JSON.parse(payload.toString());
@@ -177,11 +188,12 @@ async function main() {
       if (topic === "home/_meta/adapter/control4/health") c4Health.resolve(msg);
       if (topic === "home/_meta/adapter/iaqualink/health") iaqHealth.resolve(msg);
       if (topic === "home/_meta/adapter/tuya/health") tuyaHealth.resolve(msg);
+      if (topic === "home/_meta/adapter/tv/health") tvHealth.resolve(msg);
     });
 
-    log("waiting for all 4 adapter healths...");
+    log("waiting for all 5 adapter healths...");
     await Promise.race([
-      Promise.all([sonosHealth.promise, c4Health.promise, iaqHealth.promise, tuyaHealth.promise]),
+      Promise.all([sonosHealth.promise, c4Health.promise, iaqHealth.promise, tuyaHealth.promise, tvHealth.promise]),
       sleep(20_000).then(() => Promise.reject(new Error("health timeout"))),
     ]);
     log("all adapters healthy");
@@ -361,6 +373,36 @@ async function main() {
     });
     const f = await Promise.race([finalState.promise, sleep(2000).then(() => null)]);
     assert("scheduled set_climate updated hot_tub state", f !== null && (f.state as Record<string, unknown>)["target_f"] === 104);
+
+    // ──────────────────────────────────────────────────────────────────
+    // §F — TV wire (set_video)
+    // ──────────────────────────────────────────────────────────────────
+    log("\n=== §F: TV wire (set_video) ===");
+    {
+      const r = await registry.run(
+        { tool: "set_video", args: { room: "theater", on: true, input: "apple_tv", volume: 30 } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("theater set_video ok", r.ok);
+      const s = r.state as Record<string, unknown> | undefined;
+      assert("theater tv on", s?.["on"] === true);
+      assert("theater tv input == apple_tv", s?.["input"] === "apple_tv");
+      assert("theater tv volume == 30", s?.["volume"] === 30);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // §G — Water feature (Tuya switch via set_water_feature)
+    // ──────────────────────────────────────────────────────────────────
+    log("\n=== §G: Water feature (set_water_feature) ===");
+    {
+      const r = await registry.run(
+        { tool: "set_water_feature", args: { name: "fountain", on: true } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("fountain set_water_feature ok", r.ok);
+      const s = r.state as Record<string, unknown> | undefined;
+      assert("fountain on", s?.["on"] === true);
+    }
 
     console.log("");
     if (failures.length === 0) {

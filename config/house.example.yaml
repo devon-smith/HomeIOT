@@ -38,8 +38,8 @@ rooms:
       tv:
         adapter: tv
         config:
-          brand: samsung
-          ip: 192.168.1.0  # fill in
+          brand: samsung   # samsung | lg | sony | apple_tv | mock
+          ip: 192.168.1.0  # fill in — for IP-controlled brands (samsung/lg/sony)
       lights:
         adapter: control4
         config:
