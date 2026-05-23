@@ -8,6 +8,7 @@ This is the orchestration layer that unifies Control4, Sonos, iAquaLink, Tuya, a
 
 - [PROJECT_REPORT.md](./PROJECT_REPORT.md) — strategy, goals, architecture, build plan. Start here.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — technical deep-dive on the five-layer design and data flow.
+- [ROADMAP.md](./ROADMAP.md) — milestone roadmap (6-18 month view).
 - [docs/MQTT_TOPICS.md](./docs/MQTT_TOPICS.md) — the canonical topic schema everything publishes to.
 - [docs/TOOL_SCHEMA.md](./docs/TOOL_SCHEMA.md) — the tool interface Claude sees.
 - [docs/ADAPTER_GUIDE.md](./docs/ADAPTER_GUIDE.md) — how to write a new device adapter.
