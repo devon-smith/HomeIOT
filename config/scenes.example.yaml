@@ -1,0 +1,47 @@
+# Scenes — composed multi-device actions, owned by the brain.
+#
+# Source-of-truth rule (see PROJECT_REPORT §10.1):
+#   - The C4 dealer owns C4-only scenes in Composer (lighting presets,
+#     AV routing, etc.). The brain references them via `run_c4_scene`.
+#   - The brain owns cross-vendor compositions here. Each step is a
+#     tool call; one of those tools is run_c4_scene to invoke a
+#     Composer-defined scene as part of a larger composition.
+#
+# Copy to config/scenes.yaml and customize.
+
+scenes:
+  movie_night:
+    name: Movie Night
+    description: Theater AV on, lights dim, music in adjacent rooms quiet.
+    rooms: [theater]
+    actions:
+      - tool: run_c4_scene
+        args: { name: theater_movie }      # C4 dealer-defined; lights + AVR + projector
+      - tool: set_music
+        args: { room: living_room, volume: 10 }
+      - tool: set_music
+        args: { room: kitchen, volume: 10 }
+
+  dinner:
+    name: Dinner
+    description: Warm lights, kitchen + dining music, fountain on.
+    rooms: [kitchen, living_room, backyard]
+    actions:
+      - tool: run_c4_scene
+        args: { name: kitchen_dinner }
+      - tool: set_music
+        args: { room: kitchen, query: dinner playlist, volume: 25 }
+      - tool: set_water_feature
+        args: { name: backyard_fountain, on: true }
+
+  evening_outdoor:
+    name: Evening Outdoor
+    description: Pool lights, backyard music, hot tub warm.
+    rooms: [backyard]
+    actions:
+      - tool: set_lights
+        args: { zone: pool, scene: blue }
+      - tool: set_music
+        args: { room: backyard, query: evening playlist, volume: 25 }
+      - tool: set_climate
+        args: { zone: hot_tub, target_f: 102 }

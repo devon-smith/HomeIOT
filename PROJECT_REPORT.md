@@ -226,7 +226,7 @@ Each phase produces a working, demonstrable system. No phase ships only infrastr
 
 - Mosquitto MQTT broker in Docker on the Mac mini
 - Postgres + Redis in Docker
-- Prisma schema for `devices`, `scenes`, `scheduled_jobs`, `audit_log`
+- Prisma schema for `devices`, `scenes`, `scheduled_jobs`, `audit_log`, `approval_requests`, `actors`
 - Skeleton TypeScript service with MQTT client, Redis client, Prisma client
 - A `discover.ts` script that scans the LAN and prints what it finds (Sonos via SSDP, Tuya via UDP broadcast, mDNS for everything else)
 
@@ -245,10 +245,11 @@ Each phase produces a working, demonstrable system. No phase ships only infrastr
 
 - Coordinate with C4 dealer to expose a named-scene catalog
 - Python C4 adapter using `pyControl4` (auth, WebSocket for state, scene firing)
-- Bridge the C4 catalog into the world model as room-attached "scenes"
-- Tools: `run_scene` now actually does something; `set_lights` for individually-controlled zones
+- Implement `run_c4_scene` tool — fires a Composer-defined scene by name
+- Implement `run_scene` tool — runs a brain-owned composition from `config/scenes.yaml` (each step is a tool call; some steps may be `run_c4_scene`)
+- Tools: `set_lights` for individually-controlled zones
 
-**Done when:** typing "movie night in the theater" triggers a C4 scene that also coordinates Sonos volume in adjacent rooms via the brain (multi-vendor scene).
+**Done when:** typing "movie night in the theater" runs a brain composition that fires the C4 dealer's theater scene AND coordinates Sonos volume in adjacent rooms — both in one user-visible action.
 
 ### Phase 3 — Pool, spa, sauna (week 4)
 
@@ -315,7 +316,7 @@ Each phase produces a working, demonstrable system. No phase ships only infrastr
 | Live state | Redis 7 | Sub-millisecond reads for LLM context assembly |
 | Persistent state | Postgres 16 with Prisma | Already in your stack |
 | Scheduler | BullMQ on top of Redis | Persistent, retries, good observability |
-| LLM | Claude via Anthropic API, tool use enabled. Model: `claude-sonnet-4-6` for default planning (fast, cheap, strong tool use); `claude-opus-4-7` for complex multi-step scenes | Tool use is GA, latency is acceptable, and you're already on the API |
+| LLM | Claude via Anthropic API, tool use + prompt caching enabled. Model: `claude-sonnet-4-6` for default planning (fast, cheap, strong tool use); `claude-opus-4-7` for complex multi-step scenes | Tool use is GA, latency is acceptable, and you're already on the API. The context layout (system + house + tools, then state + history + user) maps cleanly to cache breakpoints — see ARCHITECTURE.md |
 | Discovery | mDNS via `bonjour-service`; SSDP via `node-ssdp`; Tuya UDP via tinytuya scanner | Stock approaches per protocol |
 | Container | Docker Compose for the supporting services; native processes for the brain itself | Faster iteration locally; nothing fancy needed |
 | Auth (for remote later) | Tailscale | One toggle, no NAT pain |
@@ -339,7 +340,7 @@ Reference: https://docs.claude.com/en/api/overview
 
 ## 10. Open questions for the next session
 
-1. Do we want the dealer-exposed C4 scene catalog to live in Composer (source of truth there) or be defined in `config/scenes.yaml` (source of truth here, with Composer reflecting it)? Big implications for who owns the room → scene mapping.
+1. ~~Do we want the dealer-exposed C4 scene catalog to live in Composer or in `config/scenes.yaml`?~~ **Resolved: split.** The C4 dealer owns C4-internal scenes in Composer (lighting presets, AV routing, projector start-up). The brain owns cross-vendor compositions in `config/scenes.yaml`. The `run_c4_scene` tool bridges them — brain scenes invoke one or more Composer scenes as steps. Means the dealer keeps their working tools and the brain doesn't re-implement C4 logic. See `docs/TOOL_SCHEMA.md`.
 2. iMessage bridge: AppleScript every poll vs sqlite tail of `chat.db`. The sqlite path is faster but requires Full Disk Access for the launchd agent.
 3. The entertainment tracker and Instagram pipeline both have their own intent surfaces. At what point do we collapse them into a single chat interface vs keep them domain-specific? The answer probably depends on how well the LLM planner can disambiguate domains from a single message.
 

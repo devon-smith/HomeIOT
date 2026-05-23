@@ -74,10 +74,29 @@ Either `query`, `uri`, or `action` must be present. `volume` is independent and 
 
 ```ts
 {
-  scene: string;                      // named scene from house.yaml or C4 catalog
+  scene: string;                      // slug from config/scenes.yaml
   room?: string;                      // disambiguates room-scoped scenes
 }
 ```
+
+Runs a brain-owned, cross-vendor composition. Each step in the scene is itself
+a tool call (including possibly `run_c4_scene`), executed in declared order
+with parallelism where the steps are independent.
+
+### `run_c4_scene`
+
+```ts
+{
+  name: string;                       // name as defined by the C4 dealer in Composer
+  room?: string;                      // optional room context
+}
+```
+
+Fires a single Control4 scene programmed in Composer. This is the brain's
+escape hatch for C4-internal logic — lighting presets, AVR routing,
+projector start-up — without trying to re-implement that logic upstream.
+Brain-owned compositions in `run_scene` typically invoke one or more of
+these as steps.
 
 ### `schedule_action`
 
@@ -126,6 +145,7 @@ Each tool has a permission level enforced at execution time, independent of what
 | `set_video` | ✅ | ✅ | ✅ |
 | `set_water_feature` | ✅ | ✅ | ❌ |
 | `run_scene` | ✅ | ✅ | scene-dependent |
+| `run_c4_scene` | ✅ | ✅ | scene-dependent |
 | `schedule_action` | ✅ | ≤24h only | ❌ |
 | `ask_user` | ✅ | ✅ | ✅ |
 
@@ -136,8 +156,8 @@ Destructive actions (door locks, security disarm, gate) are not in this list; th
 Before any tool call executes:
 
 1. Schema check (zod).
-2. Existence check: `room`, `zone`, `scene`, `name` must resolve in `config/house.yaml`.
-3. Permission check against `actor`.
+2. Existence check: `room`, `zone`, `scene`, `name` must resolve in `config/house.yaml` or `config/scenes.yaml`.
+3. Permission check against `actor` (resolved against the live `actors` Postgres table — yaml seeds it on first boot; runtime additions like temporary house-sitters live only in the table).
 4. Approval-queue check for destructive ops.
 
 Failures return `{ ok: false, message: "..." }` to the planner, which can self-correct on the next turn.
