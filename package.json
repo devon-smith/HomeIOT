@@ -13,7 +13,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "discover": "tsx scripts/discover.ts",
-    "test": "node --import tsx --test 'src/**/*.test.ts'",
+    "test": "node --import tsx --test 'src/**/*.test.ts' 'scripts/**/*.test.ts'",
     "sonos": "tsx src/adapters/sonos/index.ts",
     "tv": "tsx src/adapters/tv/index.ts",
     "smoke": "tsx scripts/smoke.ts",
