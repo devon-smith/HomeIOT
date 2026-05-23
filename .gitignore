@@ -1,0 +1,10 @@
+# Claude Code local settings
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
