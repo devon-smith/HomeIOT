@@ -391,18 +391,52 @@ work (always-listening, false-positive tuning).
 
 ---
 
-## 11 · Remote access (M10)
+## 11 · Remote access (M10 — arriving early)
 
-### Who needs remote access? **[IMPORTANT]**
+> **Status update (2026-05-23):** Tailscale is being set up on the Mac mini
+> ahead of M10 as part of a separate project (the home manager / son's
+> "OpenClaw" device-access flow). This is a head start — the brain's
+> remote-access story now lands as soon as the brain itself is running.
+> See `docs/DATA_INGESTION_CHECKLIST.md §11` for the brain-specific
+> coexistence steps.
 
-- **Default:** Owner + partner via Tailscale.
-- [ ] Anyone else? Adult children? Property manager?
+### Who needs remote access to Home Brain specifically? **[IMPORTANT]**
 
-### Tailscale vs. exposed-to-internet? **[BLOCKING for M10]**
+The existing tailnet has at least: Mac mini, the home manager, the son's
+school computer (port-22-only ACL). Who else gets brain access?
 
-- **Default:** Tailscale only. Never expose the brain's port to the
-  open internet.
-- This is non-negotiable in the threat model (PROJECT_REPORT §8).
+- [ ] Owner — yes, default
+- [ ] Partner — needs Tailscale on their phone(s)
+- [ ] Anyone else (adult children, property manager)?
+
+### Tailscale ACLs for the brain's HTTP port (3000)? **[BLOCKING for first remote access]**
+
+The son's ACL already restricts him to port 22. The brain runs on port
+3000. Anyone with no ACL restriction can hit port 3000.
+
+- **Default:** restrict 3000 to a `homebrain-users` tag (owner +
+  partner devices). Son and any future tailnet members are excluded
+  unless explicitly tagged.
+- **Why it matters:** the brain currently has no per-request auth; it
+  trusts whoever can hit the port. The tailnet ACL is the access
+  control.
+
+### Bind the brain HTTP to which interfaces? **[IMPORTANT]**
+
+The brain's HTTP server currently binds to `0.0.0.0` (every interface,
+including LAN and Tailscale).
+
+- **Default:** stay on `0.0.0.0` — LAN access from inside the house
+  (laptop, partner's iPad) is desired. Tailscale ACL handles tailnet
+  exposure.
+- **Alternative:** bind to Tailscale interface only (no LAN access
+  from non-tailnet devices). Tighter, slightly less convenient.
+
+### Backing services on the tailnet? **[BLOCKED — fixed in docker-compose]**
+
+Mosquitto / Postgres / Redis previously bound to `0.0.0.0`. Now bound
+to `127.0.0.1` only. Nothing on the tailnet can reach them; only the
+brain process on the same host can.
 
 ### What about away-from-home schedule firing? **[IMPORTANT]**
 

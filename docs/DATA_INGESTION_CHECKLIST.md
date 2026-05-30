@@ -314,11 +314,10 @@ extra setup. To make it reachable from other devices on the LAN:
 | Item | Where |
 |---|---|
 | Local hostname | macOS sets one automatically (`mac-mini.local`) — no DNS work needed |
-| Tailscale (recommended for remote access — M10) | https://tailscale.com — install on Mac mini + every device that needs remote access |
+| Tailscale | See §11 below (no longer deferred to M10 — being set up alongside an unrelated project) |
 
 - [ ] Confirm `http://<mac-mini>.local:3000/` loads from your phone on
       the same Wi-Fi
-- [ ] Tailscale install deferred to M10
 
 ---
 
@@ -341,7 +340,76 @@ Redis.
 
 ---
 
-## 10 · Pre-flight checklist before going live
+## 10 · Tailscale (30 min, arriving early)
+
+> Originally part of M10, but Tailscale is being set up on the Mac mini
+> ahead of schedule alongside an unrelated project. Use these steps to make
+> sure Home Brain coexists cleanly.
+
+### Brain-specific items beyond the generic Tailscale install
+
+The generic Tailscale install (Mac mini + your phone, both signed in to
+your tailnet) is covered elsewhere. These are the brain-specific items
+on top:
+
+| Item | What to do | Why |
+|---|---|---|
+| Bind backing services to localhost | Already shipped — `docker-compose.yml` binds mosquitto / postgres / redis to `127.0.0.1` so they are not reachable on the tailnet | Defense in depth — only the brain process on the same host needs them |
+| Tag your devices in Tailscale | Admin console → Devices → tag `tag:homebrain-users` on your phone + partner's phone | Lets ACLs target your devices specifically |
+| Tag the Mac mini | Tag the Mac mini with `tag:homebrain-server` | Same — ACL target |
+| Write the ACL | Admin console → Access controls | See snippet below |
+
+### Recommended ACL snippet
+
+Paste into the Tailscale admin console under Access Controls. Coexists
+with whatever rules are already there for your son's port-22-only access.
+
+```jsonc
+{
+  "tagOwners": {
+    "tag:homebrain-server": ["your-email@example.com"],
+    "tag:homebrain-users": ["your-email@example.com"]
+  },
+  "acls": [
+    // Existing son's rule stays as-is — port 22 only to the Mac mini.
+
+    // Home Brain users can hit the brain's HTTP port on the Mac mini.
+    {
+      "action": "accept",
+      "src":    ["tag:homebrain-users"],
+      "dst":    ["tag:homebrain-server:3000"]
+    }
+  ]
+}
+```
+
+After saving the ACL, from your phone (via Tailscale):
+`http://openclaw-mac-mini:3000/` should load the dashboard. Same URL
+works from anywhere with Tailscale running.
+
+### Add your partner to the brain
+
+| Step | Where |
+|---|---|
+| Invite your partner to the tailnet | Admin console → Users → Invite user |
+| Install Tailscale on their phone | They get an email; one tap |
+| Tag their device | Admin console → Devices → add `tag:homebrain-users` |
+| Verify | Their phone can hit `http://openclaw-mac-mini:3000/` |
+
+### Checklist
+
+- [ ] Mac mini on Tailscale and tagged `tag:homebrain-server`
+- [ ] Your phone tagged `tag:homebrain-users`
+- [ ] ACL snippet applied (extends existing son's rule)
+- [ ] `http://openclaw-mac-mini:3000/` loads on your phone from cellular
+- [ ] Partner invited + tagged (if they're a brain user)
+- [ ] **Verify the son cannot reach port 3000** — log in on his
+      computer (or have him try) and confirm `http://openclaw-mac-mini:3000/`
+      times out. ACLs are easy to get subtly wrong.
+
+---
+
+## 11 · Pre-flight checklist before going live
 
 Run this list once everything above is filled in, before letting the
 brain talk to your house unsupervised:
