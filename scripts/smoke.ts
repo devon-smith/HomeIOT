@@ -43,6 +43,11 @@ const BROKER_PORT = 21883;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
+// Prefer the project venv's python (where the adapters are pip-installed) over
+// the system python. Falls back to PATH if no venv exists yet.
+const VENV_PYTHON = path.join(ROOT, ".venv", "bin", "python3");
+const PYTHON = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : "python3";
+
 interface Awaiter<T> {
   promise: Promise<T>;
   resolve: (v: T) => void;
@@ -131,7 +136,7 @@ async function main() {
     subprocesses.push(sonos);
 
     // Spawn Python Control4 adapter
-    const c4 = spawn("python3", ["-u", "-m", "home_brain_control4.main"], {
+    const c4 = spawn(PYTHON, ["-u", "-m", "home_brain_control4.main"], {
       cwd: path.join(ROOT, "adapters-py/control4"),
       env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, CONTROL4_MODE: "mock", LOG_LEVEL: "INFO" },
       stdio: ["ignore", "pipe", "pipe"],
@@ -141,7 +146,7 @@ async function main() {
     subprocesses.push(c4);
 
     // Spawn Python iAquaLink adapter
-    const iaqualink = spawn("python3", ["-u", "-m", "home_brain_iaqualink.main"], {
+    const iaqualink = spawn(PYTHON, ["-u", "-m", "home_brain_iaqualink.main"], {
       cwd: path.join(ROOT, "adapters-py/iaqualink"),
       env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, IAQUALINK_MODE: "mock", LOG_LEVEL: "INFO" },
       stdio: ["ignore", "pipe", "pipe"],
@@ -151,7 +156,7 @@ async function main() {
     subprocesses.push(iaqualink);
 
     // Spawn Python Tuya adapter
-    const tuya = spawn("python3", ["-u", "-m", "home_brain_tuya.main"], {
+    const tuya = spawn(PYTHON, ["-u", "-m", "home_brain_tuya.main"], {
       cwd: path.join(ROOT, "adapters-py/tuya"),
       env: { ...process.env, MQTT_URL: `mqtt://localhost:${BROKER_PORT}`, TUYA_MODE: "mock", LOG_LEVEL: "INFO" },
       stdio: ["ignore", "pipe", "pipe"],

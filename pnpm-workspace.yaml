@@ -1,0 +1,8 @@
+# pnpm 10+ moved package.json's "pnpm" field here. We're not using
+# workspaces (yet), but this is where settings live now.
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - msgpackr-extract
+  - prisma
