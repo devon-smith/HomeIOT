@@ -38,14 +38,22 @@ tmux send-keys    -t "$SESSION:sonos" "SONOS_MODE=$SONOS_MODE pnpm sonos" C-m
 tmux new-window   -t "$SESSION" -n tv -c "$REPO_ROOT"
 tmux send-keys    -t "$SESSION:tv" "TV_MODE=$TV_MODE pnpm tv" C-m
 
+# Python adapters run inside the project venv created by setup-mac-mini.sh
+PY="$REPO_ROOT/.venv/bin/python3"
+if [ ! -x "$PY" ]; then
+  echo "error: .venv not found at $REPO_ROOT/.venv — run ./scripts/setup-mac-mini.sh first"
+  tmux kill-session -t "$SESSION"
+  exit 1
+fi
+
 tmux new-window   -t "$SESSION" -n c4 -c "$REPO_ROOT/adapters-py/control4"
-tmux send-keys    -t "$SESSION:c4" "CONTROL4_MODE=$CONTROL4_MODE python3 -m home_brain_control4.main" C-m
+tmux send-keys    -t "$SESSION:c4" "CONTROL4_MODE=$CONTROL4_MODE $PY -m home_brain_control4.main" C-m
 
 tmux new-window   -t "$SESSION" -n iaq -c "$REPO_ROOT/adapters-py/iaqualink"
-tmux send-keys    -t "$SESSION:iaq" "IAQUALINK_MODE=$IAQUALINK_MODE python3 -m home_brain_iaqualink.main" C-m
+tmux send-keys    -t "$SESSION:iaq" "IAQUALINK_MODE=$IAQUALINK_MODE $PY -m home_brain_iaqualink.main" C-m
 
 tmux new-window   -t "$SESSION" -n tuya -c "$REPO_ROOT/adapters-py/tuya"
-tmux send-keys    -t "$SESSION:tuya" "TUYA_MODE=$TUYA_MODE python3 -m home_brain_tuya.main" C-m
+tmux send-keys    -t "$SESSION:tuya" "TUYA_MODE=$TUYA_MODE $PY -m home_brain_tuya.main" C-m
 
 tmux select-window -t "$SESSION:brain"
 
