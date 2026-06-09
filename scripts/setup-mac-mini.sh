@@ -61,7 +61,12 @@ ok "docker daemon responding"
 
 bold "4/7 · Node dependencies + Prisma client"
 [ -f .env ] || { cp .env.example .env; warn "created .env from .env.example — add your ANTHROPIC_API_KEY when ready"; }
-pnpm install
+# pnpm 10+ blocks postinstall scripts by default. The set of allowed
+# packages is pinned in package.json under "pnpm.onlyBuiltDependencies",
+# but if it's missing for any reason we fall back to running install
+# without aborting on ERR_PNPM_IGNORED_BUILDS — postinstall failures
+# surface in the prisma generate / smoke tests below.
+pnpm install || warn "pnpm install reported a non-fatal warning (likely build-script approval); continuing"
 pnpm exec prisma generate >/dev/null
 ok "pnpm install + prisma generate"
 
