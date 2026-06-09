@@ -77,13 +77,25 @@ docker compose ps
 pnpm exec prisma migrate dev --name init --skip-generate 2>/dev/null || warn "prisma migrate skipped or already applied"
 ok "stack up"
 
-bold "6/7 · Python adapter dependencies"
-PIP="python3 -m pip"
-$PIP install --quiet paho-mqtt PyYAML
+bold "6/7 · Python adapter dependencies (in .venv)"
+# Homebrew Python on macOS is PEP 668-protected — we can't pip install
+# system-wide. Use a project-scoped venv at .venv/ instead. The Python
+# adapter panes in run-all.sh source this venv before launching.
+if [ ! -d .venv ]; then
+  python3 -m venv .venv
+  ok "created .venv"
+else
+  ok ".venv exists"
+fi
+.venv/bin/pip install --quiet --upgrade pip
+.venv/bin/pip install --quiet paho-mqtt PyYAML
+ok "paho-mqtt + PyYAML"
 for adapter in control4 iaqualink tuya; do
-  (cd "adapters-py/$adapter" && $PIP install --quiet -e . 2>/dev/null) \
-    && ok "adapters-py/$adapter" \
-    || warn "adapters-py/$adapter editable install failed (paho-mqtt/PyYAML are installed globally, so mock mode still works)"
+  if .venv/bin/pip install --quiet -e "adapters-py/$adapter"; then
+    ok "adapters-py/$adapter"
+  else
+    warn "adapters-py/$adapter editable install failed"
+  fi
 done
 
 bold "7/7 · Verification"
