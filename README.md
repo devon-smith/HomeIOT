@@ -6,7 +6,8 @@ This is the orchestration layer that unifies Control4, Sonos, iAquaLink, Tuya, a
 
 ## Read first
 
-- [PROJECT_REPORT.md](./PROJECT_REPORT.md) — strategy, goals, architecture, build plan. Start here.
+- [docs/PROJECT_SCOPE.md](./docs/PROJECT_SCOPE.md) — **scope & handoff doc: current state, conventions, next steps. New conversations/contributors start here.**
+- [PROJECT_REPORT.md](./PROJECT_REPORT.md) — strategy, goals, architecture, build plan.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — technical deep-dive on the five-layer design and data flow.
 - [ROADMAP.md](./ROADMAP.md) — milestone roadmap (6-18 month view).
 - [docs/DATA_INGESTION_CHECKLIST.md](./docs/DATA_INGESTION_CHECKLIST.md) — everything to gather to bring this live (run through this once when you're ready to leave sandbox mode).
