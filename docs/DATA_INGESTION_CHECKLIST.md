@@ -343,37 +343,54 @@ Redis.
 ## 10 · Tailscale (30 min, arriving early)
 
 > Originally part of M10, but Tailscale is being set up on the Mac mini
-> ahead of schedule alongside an unrelated project. Use these steps to make
-> sure Home Brain coexists cleanly.
+> ahead of schedule alongside an unrelated project. **The tailnet is owned
+> by the home manager** — the items marked "(tailnet owner)" below are
+> asks for him; everything else you do yourself.
 
-### Brain-specific items beyond the generic Tailscale install
+### Roles
 
-The generic Tailscale install (Mac mini + your phone, both signed in to
-your tailnet) is covered elsewhere. These are the brain-specific items
-on top:
+Two access levels, least-privilege:
 
-| Item | What to do | Why |
+| Tag | Who | Can reach on the Mac mini |
 |---|---|---|
-| Bind backing services to localhost | Already shipped — `docker-compose.yml` binds mosquitto / postgres / redis to `127.0.0.1` so they are not reachable on the tailnet | Defense in depth — only the brain process on the same host needs them |
-| Tag your devices in Tailscale | Admin console → Devices → tag `tag:homebrain-users` on your phone + partner's phone | Lets ACLs target your devices specifically |
-| Tag the Mac mini | Tag the Mac mini with `tag:homebrain-server` | Same — ACL target |
-| Write the ACL | Admin console → Access controls | See snippet below |
+| `tag:homebrain-admin` | Your dev machines (desktop, laptop) | ports 22 (SSH) + 3000 (dashboard) |
+| `tag:homebrain-users` | Your phone, partner's phone | port 3000 only |
+
+The son's existing port-22 rule is separate and stays as-is.
+
+### Asks for the tailnet owner
+
+1. **Fresh user invite** for your email (invite links expire — Admin
+   console → Users → Invite user). One invite covers all your devices.
+2. **Tag the Mac mini** `tag:homebrain-server` (Admin console → Machines
+   → opens-mac-mini → Edit ACL tags).
+3. **After your devices join**, tag your desktop/laptop
+   `tag:homebrain-admin` and your phone `tag:homebrain-users`.
+4. **Apply the ACL snippet** below (Admin console → Access controls) —
+   it extends, not replaces, the existing policy.
+5. **Confirm MagicDNS is on** (DNS tab) so `opens-mac-mini` resolves by
+   name.
+6. **Keep subnet routes off** for the Mac mini (already his plan).
 
 ### Recommended ACL snippet
-
-Paste into the Tailscale admin console under Access Controls. Coexists
-with whatever rules are already there for your son's port-22-only access.
 
 ```jsonc
 {
   "tagOwners": {
-    "tag:homebrain-server": ["your-email@example.com"],
-    "tag:homebrain-users": ["your-email@example.com"]
+    "tag:homebrain-server": ["tailnet-owner@example.com"],
+    "tag:homebrain-admin":  ["tailnet-owner@example.com"],
+    "tag:homebrain-users":  ["tailnet-owner@example.com"]
   },
   "acls": [
     // Existing son's rule stays as-is — port 22 only to the Mac mini.
 
-    // Home Brain users can hit the brain's HTTP port on the Mac mini.
+    // Dev machines: SSH + dashboard.
+    {
+      "action": "accept",
+      "src":    ["tag:homebrain-admin"],
+      "dst":    ["tag:homebrain-server:22,3000"]
+    },
+    // Phones: dashboard only.
     {
       "action": "accept",
       "src":    ["tag:homebrain-users"],
@@ -383,18 +400,30 @@ with whatever rules are already there for your son's port-22-only access.
 }
 ```
 
-After saving the ACL, from your phone (via Tailscale):
-`http://openclaw-mac-mini:3000/` should load the dashboard. Same URL
-works from anywhere with Tailscale running.
+### Your own steps (after the invite arrives)
 
-### Add your partner to the brain
+1. Install Tailscale on the desktop (`brew install --cask tailscale` or
+   tailscale.com/download) and on your phone (iOS app).
+2. Sign in via the invite — your own account, never the owner's login.
+3. Verify: `tailscale status` shows opens-mac-mini; then
+   `ssh openclaw@opens-mac-mini` and `http://opens-mac-mini:3000/` work
+   from anywhere.
 
-| Step | Where |
-|---|---|
-| Invite your partner to the tailnet | Admin console → Users → Invite user |
-| Install Tailscale on their phone | They get an email; one tap |
-| Tag their device | Admin console → Devices → add `tag:homebrain-users` |
-| Verify | Their phone can hit `http://openclaw-mac-mini:3000/` |
+### While at home (no Tailscale needed)
+
+The Mac mini is reachable over the LAN via mDNS regardless of tailnet
+state: `ssh openclaw@opens-mac-mini.local` and
+`http://opens-mac-mini.local:3000/`. Use this path for everything until
+the invite/tagging lands. Also do `ssh-copy-id openclaw@opens-mac-mini.local`
+now so key-based SSH works before you leave the LAN.
+
+### Verify
+
+- [ ] `http://opens-mac-mini:3000/` loads on your phone **on cellular**
+- [ ] `ssh openclaw@opens-mac-mini` works from your desktop off-LAN
+- [ ] **Son's device cannot reach port 3000** — have him try; ACLs are
+      easy to get subtly wrong
+- [ ] Partner invited + phone tagged `tag:homebrain-users` (if applicable)
 
 ### Checklist
 
