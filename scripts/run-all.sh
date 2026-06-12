@@ -29,13 +29,16 @@ fi
 # Backing services must be up first.
 (cd "$REPO_ROOT" && docker compose up -d)
 
+# Use explicit ":N" window targets — bare "-t SESSION" can collide with a
+# same-named window in some tmux versions ("create window failed: index 0
+# in use").
 tmux new-session  -d -s "$SESSION" -n brain -c "$REPO_ROOT"
 tmux send-keys    -t "$SESSION:brain" "pnpm dev" C-m
 
-tmux new-window   -t "$SESSION" -n sonos -c "$REPO_ROOT"
+tmux new-window   -a -t "$SESSION:brain" -n sonos -c "$REPO_ROOT"
 tmux send-keys    -t "$SESSION:sonos" "SONOS_MODE=$SONOS_MODE pnpm sonos" C-m
 
-tmux new-window   -t "$SESSION" -n tv -c "$REPO_ROOT"
+tmux new-window   -a -t "$SESSION:sonos" -n tv -c "$REPO_ROOT"
 tmux send-keys    -t "$SESSION:tv" "TV_MODE=$TV_MODE pnpm tv" C-m
 
 # Python adapters run inside the project venv created by setup-mac-mini.sh
@@ -46,13 +49,13 @@ if [ ! -x "$PY" ]; then
   exit 1
 fi
 
-tmux new-window   -t "$SESSION" -n c4 -c "$REPO_ROOT/adapters-py/control4"
+tmux new-window   -a -t "$SESSION:tv" -n c4 -c "$REPO_ROOT/adapters-py/control4"
 tmux send-keys    -t "$SESSION:c4" "CONTROL4_MODE=$CONTROL4_MODE $PY -m home_brain_control4.main" C-m
 
-tmux new-window   -t "$SESSION" -n iaq -c "$REPO_ROOT/adapters-py/iaqualink"
+tmux new-window   -a -t "$SESSION:c4" -n iaq -c "$REPO_ROOT/adapters-py/iaqualink"
 tmux send-keys    -t "$SESSION:iaq" "IAQUALINK_MODE=$IAQUALINK_MODE $PY -m home_brain_iaqualink.main" C-m
 
-tmux new-window   -t "$SESSION" -n tuya -c "$REPO_ROOT/adapters-py/tuya"
+tmux new-window   -a -t "$SESSION:iaq" -n tuya -c "$REPO_ROOT/adapters-py/tuya"
 tmux send-keys    -t "$SESSION:tuya" "TUYA_MODE=$TUYA_MODE $PY -m home_brain_tuya.main" C-m
 
 tmux select-window -t "$SESSION:brain"
