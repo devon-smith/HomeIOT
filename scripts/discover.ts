@@ -1,6 +1,8 @@
 import dgram from "node:dgram";
 import Bonjour from "bonjour-service";
-import { Client as SSDPClient } from "node-ssdp";
+// node-ssdp ships Client only on its default export under Node 22+
+import nodeSsdp from "node-ssdp";
+const SSDPClient = nodeSsdp.Client;
 import { config } from "../src/config.js";
 
 // Common mDNS service types we care about. Querying `_services._dns-sd._udp` is
