@@ -145,14 +145,16 @@ export class RealSonosBackend implements SonosBackend {
     if (uri) {
       await device.play(uri);
     } else if (query) {
-      const fav = await this.findFavorite(device, query);
-      if (!fav) {
+      const playable = await this.findPlayable(device, query);
+      if (!playable) {
         throw new Error(
-          `no Sonos favorite matches "${query}" in ${room}. Add the playlist as a Sonos favorite first, or use a uri.`,
+          `no Sonos favorite or playlist matches "${query}" in ${room}. ` +
+            `Save the playlist as a Sonos favorite or to "My Sonos" in the app, ` +
+            `or pass an explicit spotify: URI.`,
         );
       }
       await device.flush();
-      await device.queue({ uri: fav.uri, metadata: fav.metadata });
+      await device.queue({ uri: playable.uri, metadata: playable.metadata });
       await device.play();
     } else {
       await device.play();
@@ -160,7 +162,33 @@ export class RealSonosBackend implements SonosBackend {
     return this.readState(device);
   }
 
-  private async findFavorite(device: Sonos, query: string): Promise<SonosFavorite | null> {
+  /**
+   * Find something playable matching the query. Two-stage search, ordered
+   * by latency/specificity:
+   *   1. Sonos Favorites — what the user explicitly pinned in "My Sonos".
+   *      Fastest, highest signal: exact intent match.
+   *   2. Sonos Playlists library — Spotify playlists the user has saved
+   *      to Sonos in the app, plus any Sonos-native playlists. Broader
+   *      net for ambient/genre requests like "smooth jazz" that the user
+   *      may not have explicitly favorited.
+   *
+   * Both searches are case-insensitive substring matches on title.
+   */
+  private async findPlayable(device: Sonos, query: string): Promise<SonosFavorite | null> {
+    const favHit = await this.searchFavorites(device, query);
+    if (favHit) {
+      log.info({ query, source: "favorite", title: favHit.title }, "sonos: play match");
+      return favHit;
+    }
+    const plHit = await this.searchPlaylists(device, query);
+    if (plHit) {
+      log.info({ query, source: "sonos_playlists", title: plHit.title }, "sonos: play match");
+      return plHit;
+    }
+    return null;
+  }
+
+  private async searchFavorites(device: Sonos, query: string): Promise<SonosFavorite | null> {
     try {
       const result = (await device.getFavorites()) as { items?: SonosFavorite[] };
       const items = result.items ?? [];
@@ -168,6 +196,31 @@ export class RealSonosBackend implements SonosBackend {
       return items.find((i) => i.title?.toLowerCase().includes(q)) ?? null;
     } catch (err) {
       log.warn({ err, query }, "sonos: getFavorites failed");
+      return null;
+    }
+  }
+
+  /**
+   * Searches "Sonos Playlists" — the user's saved playlists on the Sonos
+   * system. When you tap "Save Playlist to Sonos" on a Spotify playlist
+   * in the Sonos app, it lands here. Means `play smooth jazz` finds the
+   * user's saved Spotify "Smooth Jazz" playlist without needing it
+   * explicitly favorited.
+   */
+  private async searchPlaylists(device: Sonos, query: string): Promise<SonosFavorite | null> {
+    try {
+      const result = (await device.searchMusicLibrary("sonos_playlists", query)) as {
+        items?: SonosFavorite[];
+      };
+      const items = result.items ?? [];
+      if (items.length === 0) return null;
+      // Prefer titles that contain the query as a substring (defensive: some
+      // Sonos firmwares return partial matches by other criteria).
+      const q = query.toLowerCase();
+      const exact = items.find((i) => i.title?.toLowerCase().includes(q));
+      return exact ?? items[0] ?? null;
+    } catch (err) {
+      log.warn({ err, query }, "sonos: searchMusicLibrary(sonos_playlists) failed");
       return null;
     }
   }

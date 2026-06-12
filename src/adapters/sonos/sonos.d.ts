@@ -25,6 +25,23 @@ declare module "sonos" {
     getZoneAttrs(): Promise<unknown>;
     getFavorites(): Promise<{ items?: Array<{ title: string; uri: string; metadata?: string }> }>;
 
+    /**
+     * Search the device's music library by type. searchType is one of
+     * 'playlists' | 'tracks' | 'albums' | 'artists' | 'composers' |
+     * 'genres' | 'share' | 'sonos_playlists'. Returns { items: [...] }
+     * where each item has title + uri + metadata.
+     *
+     * Useful for finding Spotify content saved to Sonos (sonos_playlists
+     * picks up Spotify playlists the user saved to Sonos in the app)
+     * even when there is no matching Sonos Favorite.
+     */
+    searchMusicLibrary(
+      searchType: string,
+      searchTerm: string | null,
+      requestOptions?: Record<string, unknown>,
+      separator?: string,
+    ): Promise<{ items?: Array<{ title: string; uri: string; metadata?: string }> }>;
+
     play(uri?: string | { uri: string; metadata?: string }): Promise<unknown>;
     pause(): Promise<unknown>;
     stop(): Promise<unknown>;
