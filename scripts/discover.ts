@@ -1,5 +1,5 @@
 import dgram from "node:dgram";
-import { Bonjour } from "bonjour-service";
+import Bonjour from "bonjour-service";
 import { Client as SSDPClient } from "node-ssdp";
 import { config } from "../src/config.js";
 
