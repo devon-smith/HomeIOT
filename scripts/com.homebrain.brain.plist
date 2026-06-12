@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd UserAgent for Home Brain.
+
+  Install via:  ./scripts/install-launchd.sh
+  (which fills in REPO_PATH + USERNAME for you and runs launchctl load).
+
+  The plist itself is committed with placeholders so it stays generic;
+  the install script materializes the user-specific version into
+  ~/Library/LaunchAgents/com.homebrain.brain.plist.
+
+  Triggers run-all.sh (via launchd-boot.sh) at login.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.homebrain.brain</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>REPO_PATH/scripts/launchd-boot.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>REPO_PATH</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!--
+    KeepAlive=false because run-all.sh spawns a tmux session and exits;
+    we don't want launchd to relaunch it every 10 seconds. The brain +
+    adapters themselves live inside tmux and the tmux server keeps them
+    up. ThrottleInterval limits respawn rate just in case.
+  -->
+  <key>KeepAlive</key>
+  <false/>
+
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/USERNAME/Library/Logs/home-brain-boot.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/USERNAME/Library/Logs/home-brain-boot.log</string>
+
+  <!--
+    Required so launchd's bare env doesn't trip up brew/node. The boot
+    script also re-exports PATH, but having it here lets simple tools
+    work earlier in the script.
+  -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
