@@ -20,6 +20,19 @@ CONTROL4_MODE="${CONTROL4_MODE:-mock}"
 IAQUALINK_MODE="${IAQUALINK_MODE:-mock}"
 TUYA_MODE="${TUYA_MODE:-mock}"
 
+# Load .env so adapter credentials (IAQUALINK_EMAIL etc.) propagate into
+# every tmux pane. The Node brain process loads .env itself via dotenv,
+# but the Python adapters do not — sourcing here is the simplest fix
+# that covers all of them. Note: bash will interpret $ and backticks in
+# values, so if a credential contains those characters, single-quote
+# the value in .env (KEY='val$with$dollars').
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$REPO_ROOT/.env"
+  set +a
+fi
+
 if tmux has-session -t "$SESSION" 2>/dev/null; then
   echo "session '$SESSION' already exists — attach with: tmux attach -t $SESSION"
   echo "or kill it first: tmux kill-session -t $SESSION"
