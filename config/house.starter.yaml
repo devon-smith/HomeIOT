@@ -1,0 +1,125 @@
+# Starter house definition for the actual deployed Mac mini.
+# Copy to config/house.yaml (which is gitignored). Edit as your real
+# devices come online.
+#
+#   cp config/house.starter.yaml config/house.yaml
+#
+# Sonos zone names below were captured live from `pnpm discover` —
+# match the Sonos app exactly, case-sensitive.
+
+timezone: America/Los_Angeles
+
+rooms:
+  living_room:
+    label: Living Room
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Living Room"
+
+  kitchen:
+    label: Kitchen
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Kitchen"
+
+  family_room:
+    label: Family Room
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Family Room"
+
+  dining_room:
+    label: Dining Room
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Dining Room"
+
+  master_bedroom:
+    label: Master Bedroom
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Master"
+      tv:
+        adapter: tv
+        config:
+          brand: sony
+          ip: 192.168.1.94
+
+  backyard:
+    label: Backyard
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Back Yard"
+      hot_tub:
+        adapter: iaqualink
+        config:
+          system: spa
+      pool:
+        adapter: iaqualink
+        config:
+          system: pool
+
+  terrace:
+    label: Terrace
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Terrace"
+
+  pool_house:
+    label: Pool House
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Pool House"
+
+  oasis_palms:
+    label: Oasis Palms
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Oasis Palms"
+
+  waterfall:
+    label: Waterfall
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Waterfall"
+
+  workout:
+    label: Workout
+    devices:
+      music:
+        adapter: sonos
+        config:
+          sonos_zone: "Workout"
+
+zones:
+  outdoor: [backyard, terrace, pool_house, oasis_palms, waterfall]
+  indoor: [living_room, kitchen, family_room, dining_room, master_bedroom, workout]
+  everywhere: [living_room, kitchen, family_room, dining_room, master_bedroom, backyard, terrace, pool_house, oasis_palms, waterfall, workout]
+
+actors:
+  owner:
+    role: owner
+    imessage_handles: []
+  partner:
+    role: partner
+    imessage_handles: []
