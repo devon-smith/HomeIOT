@@ -6,8 +6,7 @@ requires-python = ">=3.10"
 dependencies = [
     "paho-mqtt>=2.0",
     "PyYAML>=6.0",
-    # iaqualink-py is added only when IAQUALINK_MODE=real.
-    # "iaqualink>=0.5",
+    "iaqualink>=0.5",
 ]
 
 [build-system]

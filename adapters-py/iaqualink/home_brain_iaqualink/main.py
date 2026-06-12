@@ -227,7 +227,15 @@ async def amain() -> int:
         return 1
     log.info("managing %d devices: %s", len(devices), [(d.room, d.device) for d in devices])
 
-    backend: Backend = MockBackend() if mode == "mock" else IAquaLinkBackend()
+    if mode == "mock":
+        backend: Backend = MockBackend()
+    else:
+        email = os.environ.get("IAQUALINK_EMAIL")
+        password = os.environ.get("IAQUALINK_PASSWORD")
+        if not email or not password:
+            log.error("IAQUALINK_MODE=real but IAQUALINK_EMAIL / IAQUALINK_PASSWORD not set")
+            return 1
+        backend = IAquaLinkBackend(email, password)
     await backend.init(devices)
 
     adapter = Adapter(backend, devices, mqtt_url)
