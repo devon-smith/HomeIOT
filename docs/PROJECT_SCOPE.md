@@ -3,7 +3,27 @@
 > **Purpose of this doc:** the single context-priming document for any new
 > conversation or contributor on this project. Read this first; it tells you
 > what exists, what state it's in, how to work on it, and what's next.
-> Last updated: 2026-06-10.
+> Last updated: 2026-06-22.
+
+---
+
+## 0 · Resume work in one command
+
+From your **local machine**:
+
+```
+ssh openclaw@opens-mac-mini
+~/code/HomeIOT/scripts/resume.sh
+```
+
+`resume.sh` pulls the latest code, restarts the brain with the real
+backends live (**Sonos + iAquaLink**; C4/Tuya/TV stay mock), and drops you
+into the tmux session. Detach with `Ctrl-b` then `d`; the brain keeps
+running. Dashboard: `http://opens-mac-mini:3000/`.
+
+- Just want to look, not restart? `ssh openclaw@opens-mac-mini -t 'tmux attach -t brain'`
+- Reboots autostart the system **in real mode** now (via the launchd agent),
+  so you only need `resume.sh` when you want the latest code or a clean restart.
 
 ---
 
@@ -49,9 +69,9 @@ Tailscale tailnet, local user `openclaw`).
 | Milestone | What shipped | Real or mock? |
 |---|---|---|
 | **M0 Foundation** | Docker stack (Mosquitto/Postgres/Redis), Prisma schema, TS skeleton, LAN discovery script | Real, deployed |
-| **M1 Sonos** | Intent pipeline (normalize → fast-path classifier → Claude planner w/ prompt caching), Sonos adapter, `set_music`/`query_state` tools | **Mock** — `RealSonosBackend` is a stub |
-| **M2 Control4 + scenes** | Python C4 adapter, scene engine (`config/scenes.yaml`), `run_scene`/`run_c4_scene`/`set_lights` tools | **Mock** — `PyControl4Backend` is a stub |
-| **M3 Pool/spa/sauna + scheduling** | Python iAquaLink + Tuya adapters, `set_climate`/`schedule_action` tools, `MemoryScheduler` | **Mock** — real backends stubbed; scheduler is in-memory (not reboot-durable) |
+| **M1 Sonos** | Intent pipeline (normalize → fast-path classifier → Claude planner w/ prompt caching), Sonos adapter, `set_music`/`query_state` tools | **REAL** — controls all 11 live zones; `play` falls back Favorites → saved playlists |
+| **M2 Control4 + scenes** | Python C4 adapter, scene engine (`config/scenes.yaml`), `run_scene`/`run_c4_scene`/`set_lights` tools | **Mock** — `PyControl4Backend` is a stub (self-service discovery script ready: `scripts/discover-control4.py`) |
+| **M3 Pool/spa/sauna + scheduling** | Python iAquaLink + Tuya adapters, `set_climate`/`schedule_action` tools, `MemoryScheduler` | **iAquaLink REAL** (hot-tub heating confirmed end-to-end); Tuya still mock; scheduler in-memory (not reboot-durable) |
 | **M4 TVs + long tail** | TS TV adapter (per-brand backends), `set_video`/`set_water_feature` tools, HA decision deferred | **Mock** — all 4 brand backends stubbed |
 | **M5 Interfaces** | Web dashboard (vanilla JS, served at `/`), iMessage bridge (chat.db poll + osascript reply), launchd plist | Dashboard real & deployed; iMessage bridge untested on real macOS (needs FDA grants) |
 
@@ -61,32 +81,35 @@ Tailscale tailnet, local user `openclaw`).
 - `pnpm test` — **37 unit tests** (classifier, normalizer, scenes loader, scene engine, scheduler, schedule_action validation, iMessage pure logic)
 - `pnpm smoke` — **36 assertions**, spins an in-process MQTT broker (aedes), spawns all 5 adapters in mock mode, verifies §A Sonos / §B C4 / §C scene engine / §D climate / §E scheduling / §F TV / §G water feature end-to-end
 
-### Deployment state on the Mac mini (as of 2026-06-10)
+### Deployment state on the Mac mini (as of 2026-06-22)
 
 - ✅ Repo cloned at `~/code/HomeIOT`, branch `claude/admiring-planck-CwkwR`
 - ✅ `./scripts/setup-mac-mini.sh` passed all 7 steps (36 smoke assertions)
 - ✅ Docker stack up (mosquitto/postgres/redis, bound to 127.0.0.1 only)
 - ✅ Python venv at `.venv/` with all adapters installed
 - ✅ Prisma migration `20260609224546_init` applied
-- ✅ Tailscale on, device name `opens-mac-mini` (100.109.190.15), tailnet owned by the home manager (andy@); user's son has port-22-only ACL to this machine
-- ⚠️ `ANTHROPIC_API_KEY` **not yet** in `.env` — LLM planner disabled, fast-path only
-- ⚠️ Tailscale ACL for port 3000 (`tag:homebrain-server` / `tag:homebrain-users`) may not be applied yet — see `DATA_INGESTION_CHECKLIST.md §10`
-- ⚠️ No launchd autostart for the brain — after reboot someone must SSH in and run `./scripts/run-all.sh`
-- ⚠️ Power settings / auto-login / Screen Sharing / FDA grants — checklist given, completion unconfirmed
+- ✅ Tailscale on, device name `opens-mac-mini` (100.109.190.15); SSH from owner's desktop confirmed
+- ✅ `ANTHROPIC_API_KEY` in `.env` — **LLM planner live**
+- ✅ `config/house.yaml` deployed with 11 real Sonos zones + pool/spa systems (from live `pnpm discover`)
+- ✅ **launchd autostart** for the brain — cold reboot brings the tmux session up automatically, now **in real mode** (`launchd-boot.sh` exports `SONOS_MODE=real IAQUALINK_MODE=real`)
+- ✅ **Real Sonos** control across all 11 zones (jazz via Spotify confirmed playing)
+- ✅ **Real iAquaLink** — "warm the hot tub to 102" confirmed against the live spa (heater turned on, verified in the Jandy app)
+- ✅ Durable-feeling scheduling demoed (compound "off now + on at 11:35am" fired correctly) — but scheduler is still **in-memory**, so jobs are lost on reboot
+- ⚠️ **Credential rotation owed** — iAquaLink password + an Anthropic key were exposed in a pasted screenshot; rotate both (see §8)
+- ⚠️ Tailscale ACL for port 3000 (`tag:homebrain-server` / `tag:homebrain-users`) — apply/verify per `DATA_INGESTION_CHECKLIST.md §10`
+- ⚠️ Master-bedroom Sonos ("Master") throws UPnP error 800 intermittently — device pings fine; likely stale grouping/subscription. Adapter-level retry resilience offered, not yet built.
 
-### What is NOT real yet (the entire real-hardware integration)
+### What is NOT real yet
 
-Every adapter runs in mock mode. The real backends are deliberate,
+Sonos and iAquaLink are live. The remaining real backends are deliberate,
 clearly-marked stubs with implementation notes in each file:
 
-| Stub | File | Library to use |
-|---|---|---|
-| Sonos | `src/adapters/sonos/sonos-backend.ts` | `sonos` (npm) |
-| Control4 | `adapters-py/control4/home_brain_control4/pycontrol4_backend.py` | `pyControl4` |
-| iAquaLink | `adapters-py/iaqualink/home_brain_iaqualink/iaqualink_backend.py` | `iaqualink` |
-| Tuya | `adapters-py/tuya/home_brain_tuya/tinytuya_backend.py` | `tinytuya` |
-| TVs (4 brands) | `src/adapters/tv/brand-backends.ts` | per-brand |
-| Durable scheduler | `src/core/scheduler.ts` (`BullMQScheduler` class) | BullMQ + Postgres |
+| Stub | File | Library to use | Unblocked by |
+|---|---|---|---|
+| Control4 | `adapters-py/control4/home_brain_control4/pycontrol4_backend.py` | `pyControl4` | owner runs `scripts/discover-control4.py`, sends inventory JSON |
+| Tuya | `adapters-py/tuya/home_brain_tuya/tinytuya_backend.py` | `tinytuya` | owner runs `tinytuya wizard`, sends `devices.json` |
+| TVs (4 brands) | `src/adapters/tv/brand-backends.ts` | per-brand | per-brand network details |
+| Durable scheduler | `src/core/scheduler.ts` (`BullMQScheduler` class) | BullMQ + Postgres | my side, ~30 min |
 
 ---
 
@@ -125,34 +148,37 @@ user text → POST /message
 
 ## 5 · Immediate next steps (in priority order)
 
-1. **Finish Mac mini hardening** (physical/GUI, ~15 min): `pmset` power
-   settings, auto-login, Docker Desktop + Tailscale autostart, Screen
-   Sharing on, reboot test. (Checklist in the last session; partially done.)
-2. **Tailscale ACL for the dashboard**: home manager applies the
-   `tag:homebrain-server`/`tag:homebrain-users` snippet from
-   `DATA_INGESTION_CHECKLIST.md §10`; verify phone-on-cellular loads
-   `http://opens-mac-mini:3000/` AND son's device **cannot**.
-3. **Add `ANTHROPIC_API_KEY` to `.env`** on the Mac mini → unlocks the LLM
-   planner (currently fast-path only).
-4. **Run `pnpm discover` from the home LAN** → device inventory for
-   `config/house.yaml`.
-5. **Send the Control4 dealer email** (4 asks in
-   `DATA_INGESTION_CHECKLIST.md §3`) — the only week-of-calendar-lag item.
-6. **Answer the BLOCKING items in `docs/OPEN_QUESTIONS.md`** — scenes list,
-   destructive-action list, default temperatures, actor handles, v1 demo
-   definition.
-7. **First real backend: `RealSonosBackend`** (~15 min per checklist §2) —
-   the cheapest real-hardware win; proves the whole chain against a real
-   device.
-8. **launchd autostart for brain + adapters** — closes the
-   "manual restart after reboot" gap. Offered but not yet built.
+Three parallel tracks are open. The first two need owner-side data; the
+third is mine.
+
+1. **Track A — Control4 (self-service, no dealer):** add `CONTROL4_HOST`
+   (Director IP) / `CONTROL4_EMAIL` / `CONTROL4_PASSWORD` to `.env`, then on
+   the mini: `.venv/bin/pip install pyControl4 aiohttp` and
+   `.venv/bin/python scripts/discover-control4.py > /tmp/c4-inventory.json`.
+   Send the JSON → I build `RealPyControl4Backend`.
+2. **Track B — Tuya (find the sauna):** create a Tuya IoT Cloud project,
+   then `.venv/bin/pip install tinytuya && .venv/bin/python -m tinytuya
+   wizard` → sends `devices.json` (18 Tuya devices on the LAN). Send it →
+   I build `RealTinyTuyaBackend`.
+3. **Track C — BullMQ durable scheduler (my side, ~30 min):** swap the
+   in-memory scheduler so "warm the hot tub for 9pm" survives a reboot.
+   M3's done-when isn't fully met without it.
+
+### Smaller wins, queued
+
+- **Save jazz/ambient playlists to Sonos** (owner, in the Sonos app) so
+  `play smooth jazz` resolves — the `play` fallback now searches saved
+  playlists after Favorites.
+- **Master-bedroom UPnP 800 resilience** — adapter retry/re-subscribe, ~20
+  min, offered.
+- **Rotate exposed credentials** (§8 / §2 warning).
+- **Tailscale ACL for port 3000** + verify allowed/blocked devices.
 
 ### Then (near-term milestones)
 
 - **M6** Multi-actor identity + approval queue (needs OPEN_QUESTIONS §2/§8/§9 answered)
 - **M7** Observability + planner eval set (gates voice and learning)
-- **BullMQScheduler** for reboot-durable scheduling (M3 done-when isn't fully met without it)
-- Remaining real backends (C4 after dealer responds; iAquaLink; Tuya after wizard run; TVs)
+- Remaining real backends (Control4, Tuya, TVs)
 
 ---
 
@@ -208,6 +234,16 @@ user text → POST /message
   output invisibly.
 - **macOS server hygiene**: `pmset autorestart 1` + sleep disabled, or the
   whole system dies silently at the first power blip / idle timeout.
+- **Autostart mode**: `launchd-boot.sh` brings the brain up in real mode
+  (Sonos + iAquaLink). If a reboot's session is running mocks, you're on an
+  old boot script — `git pull` and re-run `scripts/resume.sh`. Mode flags
+  only take effect on a *fresh* `run-all.sh`, so `resume.sh` kills the
+  existing session first.
+- **Python adapters don't load `.env`** — `run-all.sh` sources it so panes
+  inherit `IAQUALINK_EMAIL`/`PASSWORD` etc. A stale tmux session created
+  before that fix won't have them; kill and restart.
+- **Credentials with `#`/`$`/backtick**: single-quote the value in `.env`
+  (`KEY='R#AFW...'`) so bash's `set -a` sourcing doesn't mangle it.
 
 ---
 
