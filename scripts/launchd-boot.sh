@@ -49,6 +49,13 @@ if tmux has-session -t brain 2>/dev/null; then
 fi
 
 cd "$REPO_ROOT"
-echo "$(date) starting run-all.sh"
+
+# Bring up the adapters that have real backends in REAL mode on boot, so a
+# reboot leaves a working system instead of one that silently runs mocks.
+# C4 / Tuya / TV are still stubs — leave them mock until their backends land.
+export SONOS_MODE="${SONOS_MODE:-real}"
+export IAQUALINK_MODE="${IAQUALINK_MODE:-real}"
+
+echo "$(date) starting run-all.sh (sonos=$SONOS_MODE iaqualink=$IAQUALINK_MODE)"
 ./scripts/run-all.sh
 echo "=== $(date) launchd-boot done ==="
