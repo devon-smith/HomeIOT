@@ -258,6 +258,30 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
       border-radius: 4px; font-size: 10px; text-transform: uppercase;
       letter-spacing: 0.05em; font-weight: 600; vertical-align: middle;
     }
+    /* Unified climate card spanning the rooms grid */
+    .climate-card {
+      grid-column: 1 / -1;
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px; box-shadow: var(--shadow); margin-bottom: 4px;
+    }
+    .climate-card.has-warm { background: linear-gradient(180deg, var(--warm-tint) 0%, var(--card) 100%); }
+    .climate-card.has-cool { background: linear-gradient(180deg, var(--cool-tint) 0%, var(--card) 100%); }
+    .climate-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .climate-title { font-weight: 600; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .climate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .climate-zone {
+      padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-2);
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .climate-zone:hover { border-color: var(--accent-soft); }
+    .climate-zone.on { border-color: var(--accent); }
+    .cz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+    .cz-name { font-weight: 600; font-size: 14px; text-transform: capitalize; }
+    .cz-mode { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+    .cz-temp { font: 300 32px/1 -apple-system, system-ui, sans-serif; letter-spacing: -0.02em; margin: 4px 0; }
+    .cz-setpoints { display: flex; gap: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .cz-controls { display: flex; gap: 6px; }
+    .cz-controls .btn-icon { flex: 1; }
 
     /* Bottom nav (mobile only) */
     .bottom-nav {
@@ -577,16 +601,66 @@ function renderQuick() {
 }
 
 // ----- rooms -----
+function isHvacOnlyRoom(slug) {
+  const devs = HOUSE.rooms[slug]?.devices ?? [];
+  return devs.length > 0 && devs.every(d => d.startsWith('hvac_') || d === 'climate');
+}
+
+function renderClimateCard() {
+  if (!HOUSE) return '';
+  const slugs = Object.keys(HOUSE.rooms).filter(isHvacOnlyRoom);
+  if (!slugs.length) return '';
+  const zones = slugs.flatMap(slug => {
+    const state = WORLD[slug] || {};
+    return HOUSE.rooms[slug].devices.map(device => ({
+      slug, device,
+      label: HOUSE.rooms[slug].label.replace(/ HVAC$/i, ''),
+      state: state[device]?.state || {},
+      online: state[device]?.online !== false,
+    }));
+  });
+  const anyCooling = zones.some(z => z.state.hvac_state === 'cooling' || z.state.mode === 'cool');
+  const anyHeating = zones.some(z => z.state.hvac_state === 'heating' || z.state.mode === 'heat');
+  const tint = anyCooling ? ' has-cool' : (anyHeating ? ' has-warm' : '');
+  const blocks = zones.map(z => {
+    const cur = z.state.current_f;
+    const heat = z.state.heat_setpoint_f;
+    const cool = z.state.cool_setpoint_f;
+    const mode = z.state.mode || '?';
+    const isOn = z.state.hvac_state === 'cooling' || z.state.hvac_state === 'heating';
+    const pretty = z.slug.replace(/_/g, ' ').replace(/ hvac$/i, '');
+    return '<div class="climate-zone' + (isOn ? ' on' : '') + '" onclick="openSheet(' + jstr(z.slug) + ')">' +
+      '<div class="cz-head">' +
+        '<span class="cz-name">' + esc(z.label) + '</span>' +
+        '<span class="cz-mode">' + esc(mode) + (isOn ? ' · ' + z.state.hvac_state : '') + '</span>' +
+      '</div>' +
+      '<div class="cz-temp">' + (cur != null ? cur + '°' : '—') + '</div>' +
+      '<div class="cz-setpoints">' +
+        '<span title="heat setpoint">▲ ' + (heat ?? '—') + '°</span>' +
+        '<span title="cool setpoint">▼ ' + (cool ?? '—') + '°</span>' +
+      '</div>' +
+      '<div class="cz-controls" onclick="event.stopPropagation()">' +
+        '<button class="btn-icon" onclick="quickSend(' + jstr('lower the ' + pretty + ' temperature by 2') + ')">−</button>' +
+        '<button class="btn-icon" onclick="quickSend(' + jstr('raise the ' + pretty + ' temperature by 2') + ')">+</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  return '<div class="climate-card' + tint + '">' +
+    '<div class="climate-head"><span class="climate-title">🌡 Climate</span></div>' +
+    '<div class="climate-grid">' + blocks + '</div>' +
+  '</div>';
+}
+
 function renderRooms() {
   if (!HOUSE) return;
-  const slugs = Object.keys(HOUSE.rooms).sort();
-  if (!slugs.length) { $('rooms').innerHTML = '<div class="empty">no rooms configured</div>'; return; }
-  $('rooms').innerHTML = slugs.map(slug => {
+  const allSlugs = Object.keys(HOUSE.rooms).sort();
+  const roomSlugs = allSlugs.filter(s => !isHvacOnlyRoom(s));
+  if (!allSlugs.length) { $('rooms').innerHTML = '<div class="empty">no rooms configured</div>'; return; }
+  const roomCards = roomSlugs.map(slug => {
     const room = HOUSE.rooms[slug];
     const state = WORLD[slug] || {};
     const rows = room.devices.map(d => renderDevice(slug, d, state[d])).filter(Boolean).join('');
     if (!rows) return '';
-    // Tint cards based on what's active.
     const hasLightsOn = state.lights?.state?.on;
     const hvacKey = Object.keys(state).find(k => k.startsWith('hvac') || k === 'climate');
     const hvac = hvacKey ? state[hvacKey]?.state : null;
@@ -597,6 +671,7 @@ function renderRooms() {
       '<div class="room-tags">' + room.devices.length + ' device' + (room.devices.length===1?'':'s') + '</div></div>' +
       rows + '</div>';
   }).filter(Boolean).join('');
+  $('rooms').innerHTML = renderClimateCard() + roomCards;
 }
 
 function renderDevice(roomSlug, device, msg) {
