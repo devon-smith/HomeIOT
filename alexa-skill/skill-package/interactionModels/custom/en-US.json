@@ -1,0 +1,25 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "home brain",
+      "intents": [
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        {
+          "name": "RunCommandIntent",
+          "slots": [
+            { "name": "command", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "to {command}",
+            "for {command}",
+            "that {command}",
+            "{command}"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}
