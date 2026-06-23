@@ -19,11 +19,19 @@ const ActorSchema = z.object({
   imessage_handles: z.array(z.string()).default([]),
 });
 
+const HvacZoneSchema = z.object({
+  thermostat_device: z.string(),
+  rooms: z.array(z.string()).default([]),
+});
+
 const HouseSchema = z.object({
   timezone: z.string().default("America/Los_Angeles"),
   rooms: z.record(RoomSchema),
   zones: z.record(z.array(z.string())).default({}),
   actors: z.record(ActorSchema).default({}),
+  hvac_zones: z.record(HvacZoneSchema).optional(),
+  // c4: passthrough so we don't reject scene-id config; not used by brain directly.
+  c4: z.record(z.unknown()).optional(),
 });
 
 export type House = z.infer<typeof HouseSchema>;

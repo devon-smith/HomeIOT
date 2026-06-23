@@ -55,7 +55,8 @@ cd "$REPO_ROOT"
 # C4 / Tuya / TV are still stubs — leave them mock until their backends land.
 export SONOS_MODE="${SONOS_MODE:-real}"
 export IAQUALINK_MODE="${IAQUALINK_MODE:-real}"
+export CONTROL4_MODE="${CONTROL4_MODE:-real}"
 
-echo "$(date) starting run-all.sh (sonos=$SONOS_MODE iaqualink=$IAQUALINK_MODE)"
+echo "$(date) starting run-all.sh (sonos=$SONOS_MODE iaqualink=$IAQUALINK_MODE control4=$CONTROL4_MODE)"
 ./scripts/run-all.sh
 echo "=== $(date) launchd-boot done ==="
