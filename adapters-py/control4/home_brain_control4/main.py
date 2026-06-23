@@ -29,6 +29,8 @@ import paho.mqtt.client as mqtt
 import yaml
 
 from .backend import (
+    AvConfig,
+    AvState,
     Backend,
     ClimateState,
     LightState,
@@ -142,6 +144,31 @@ def load_scene_ids() -> dict[str, int]:
     return {str(k): int(v) for k, v in scenes.items()}
 
 
+def load_avs() -> list[AvConfig]:
+    """Find every device with adapter=control4 + config.c4_av_room_id set."""
+    data = _load_house()
+    out: list[AvConfig] = []
+    for room_slug, room in (data.get("rooms") or {}).items():
+        for device_slot, dev in (room.get("devices") or {}).items():
+            if not isinstance(dev, dict) or dev.get("adapter") != "control4":
+                continue
+            cfg = dev.get("config") or {}
+            c4_room_id = cfg.get("c4_av_room_id")
+            if not c4_room_id:
+                continue
+            sources_raw = cfg.get("sources") or {}
+            sources = {str(name): int(sid) for name, sid in sources_raw.items()}
+            out.append(
+                AvConfig(
+                    room=room_slug,
+                    device=device_slot,
+                    c4_room_id=int(c4_room_id),
+                    sources=sources,
+                )
+            )
+    return out
+
+
 class Adapter:
     def __init__(
         self,
@@ -150,11 +177,13 @@ class Adapter:
         mqtt_url: str,
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
+        avs: list[AvConfig] | None = None,
     ) -> None:
         self.backend = backend
         self.rooms = rooms
         self.thermostats = thermostats or []
         self.skylights = skylights or []
+        self.avs = avs or []
         self.mqtt_url = mqtt_url
         self.started_at = datetime.now(timezone.utc)
         self.last_error: str | None = None
@@ -198,6 +227,8 @@ class Adapter:
             topics.append((f"home/{t.room}/{t.device}/command", 1))
         for s in self.skylights:
             topics.append((f"home/{s.room}/{s.device}/command", 1))
+        for a in self.avs:
+            topics.append((f"home/{a.room}/{a.device}/command", 1))
         topics.append(("home/_house/c4/command", 1))
         client.subscribe(topics)
         log.info("mqtt connected; subscribed to %d topic(s)", len(topics))
@@ -209,6 +240,8 @@ class Adapter:
             asyncio.run_coroutine_threadsafe(self._publish_initial_climate(t), self.loop)
         for s in self.skylights:
             asyncio.run_coroutine_threadsafe(self._publish_initial_skylight(s), self.loop)
+        for a in self.avs:
+            asyncio.run_coroutine_threadsafe(self._publish_initial_av(a), self.loop)
 
     async def _publish_initial_state(self, room: str) -> None:
         try:
@@ -231,6 +264,13 @@ class Adapter:
         except Exception as err:
             log.exception("initial skylight state for %s.%s failed: %s", s.room, s.device, err)
 
+    async def _publish_initial_av(self, a: AvConfig) -> None:
+        try:
+            state = await self.backend.get_av_state(a.room, a.device)
+            self._publish_av_state(a.room, a.device, state, cmd_id=None)
+        except Exception as err:
+            log.exception("initial av state for %s.%s failed: %s", a.room, a.device, err)
+
     def _on_message(self, _client: mqtt.Client, _userdata: Any, msg: mqtt.MQTTMessage) -> None:
         topic = msg.topic
         parts = topic.split("/")
@@ -251,6 +291,9 @@ class Adapter:
 
     def _is_skylight_device(self, room: str, device: str) -> bool:
         return any(s.room == room and s.device == device for s in self.skylights)
+
+    def _is_av_device(self, room: str, device: str) -> bool:
+        return any(a.room == room and a.device == device for a in self.avs)
 
     async def _dispatch(self, room: str, device: str, cmd: dict[str, Any]) -> None:
         cmd_id = cmd.get("id")
@@ -304,6 +347,19 @@ class Adapter:
                     raise ValueError(f"unsupported skylight op: {op}")
                 self.last_error = None
                 self._publish_skylight_state(room, device, state, cmd_id=cmd_id)
+            elif self._is_av_device(room, device):
+                if op == "watch":
+                    av_state = await self.backend.watch_av(room, device, str(args["source"]))
+                elif op == "off":
+                    av_state = await self.backend.av_off(room, device)
+                elif op == "set_volume":
+                    av_state = await self.backend.set_av_volume(room, device, int(args["level"]))
+                elif op == "set_mute":
+                    av_state = await self.backend.set_av_mute(room, device, bool(args["muted"]))
+                else:
+                    raise ValueError(f"unsupported av op: {op}")
+                self.last_error = None
+                self._publish_av_state(room, device, av_state, cmd_id=cmd_id)
             else:
                 raise ValueError(f"unsupported device: {device}")
         except Exception as err:
@@ -363,6 +419,25 @@ class Adapter:
             "_cmd_id": cmd_id,
             "pending": False,
             "state": {"position": state.position, "open": state.position > 0},
+        }
+        self.client.publish(f"home/{room}/{device}/state", json.dumps(msg), qos=1, retain=True)
+
+    def _publish_av_state(
+        self, room: str, device: str, state: AvState, cmd_id: str | None
+    ) -> None:
+        msg = {
+            "ts": now_iso(),
+            "source": NAME,
+            "online": state.online,
+            "_cmd_id": cmd_id,
+            "pending": False,
+            "state": {
+                "power": state.power,
+                "current_source": state.current_source,
+                "current_device_id": state.current_device_id,
+                "volume": state.volume,
+                "muted": state.muted,
+            },
         }
         self.client.publish(f"home/{room}/{device}/state", json.dumps(msg), qos=1, retain=True)
 
@@ -427,12 +502,13 @@ async def amain() -> int:
     rooms = load_rooms()
     thermostats = load_thermostats()
     skylights = load_skylights()
-    if not rooms and not thermostats and not skylights:
+    avs = load_avs()
+    if not rooms and not thermostats and not skylights and not avs:
         log.error("no devices in house.yaml use the control4 adapter")
         return 1
     log.info(
-        "managing %d light rooms, %d thermostats, %d skylight groups",
-        len(rooms), len(thermostats), len(skylights),
+        "managing %d light rooms, %d thermostats, %d skylight groups, %d AV rooms",
+        len(rooms), len(thermostats), len(skylights), len(avs),
     )
 
     backend: Backend
@@ -453,9 +529,9 @@ async def amain() -> int:
         scene_ids = load_scene_ids()
         log.info("real backend: host=%s scenes=%d", host, len(scene_ids))
         backend = PyControl4Backend(host, email, password, scene_ids=scene_ids)
-    await backend.init(rooms, thermostats=thermostats, skylights=skylights)
+    await backend.init(rooms, thermostats=thermostats, skylights=skylights, avs=avs)
 
-    adapter = Adapter(backend, rooms, mqtt_url, thermostats=thermostats, skylights=skylights)
+    adapter = Adapter(backend, rooms, mqtt_url, thermostats=thermostats, skylights=skylights, avs=avs)
     stop_event = asyncio.Event()
 
     def request_stop(*_: Any) -> None:

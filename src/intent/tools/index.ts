@@ -5,6 +5,7 @@ import { setClimate } from "./set_climate.js";
 import { setSkylight } from "./set_skylight.js";
 import { setVideo } from "./set_video.js";
 import { setWaterFeature } from "./set_water_feature.js";
+import { controlAv } from "./control_av.js";
 import { queryState } from "./query_state.js";
 import { runScene } from "./run_scene.js";
 import { runC4Scene } from "./run_c4_scene.js";
@@ -18,6 +19,7 @@ export function registerTools(registry: ToolRegistry): void {
   registry.register(setSkylight);
   registry.register(setVideo);
   registry.register(setWaterFeature);
+  registry.register(controlAv);
   registry.register(queryState);
   registry.register(runScene);
   registry.register(runC4Scene);

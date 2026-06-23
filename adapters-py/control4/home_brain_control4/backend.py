@@ -36,6 +36,16 @@ class SkylightState:
 
 
 @dataclass
+class AvState:
+    power: bool = False
+    current_source: str | None = None  # human name from sources map
+    current_device_id: int = 0
+    volume: int = 0  # 0–100
+    muted: bool = False
+    online: bool = True
+
+
+@dataclass
 class SceneFiring:
     name: str
     fired_at: str  # ISO 8601
@@ -64,6 +74,14 @@ class SkylightConfig:
     item_ids: list[int]  # Director item ids for the motorized covers in this group
 
 
+@dataclass
+class AvConfig:
+    room: str             # house.yaml room slug (e.g. "theater")
+    device: str           # device slot name (e.g. "av")
+    c4_room_id: int       # Director room id (type 8) for this AV room
+    sources: dict[str, int] = field(default_factory=dict)  # source name -> source item id
+
+
 class Backend(Protocol):
     """Contract every Control4 backend must satisfy."""
 
@@ -72,6 +90,7 @@ class Backend(Protocol):
         rooms: list[RoomConfig],
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
+        avs: list[AvConfig] | None = None,
     ) -> None: ...
 
     # Lights ------------------------------------------------------------
@@ -109,5 +128,16 @@ class Backend(Protocol):
         device: str,
         position: int,
     ) -> SkylightState: ...
+
+    # AV (room-centric Control4 source select) --------------------------
+    async def get_av_state(self, room: str, device: str) -> AvState: ...
+
+    async def watch_av(self, room: str, device: str, source: str) -> AvState: ...
+
+    async def av_off(self, room: str, device: str) -> AvState: ...
+
+    async def set_av_volume(self, room: str, device: str, level: int) -> AvState: ...
+
+    async def set_av_mute(self, room: str, device: str, muted: bool) -> AvState: ...
 
     async def close(self) -> None: ...

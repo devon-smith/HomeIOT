@@ -30,6 +30,8 @@ from pyControl4.account import C4Account
 from pyControl4.director import C4Director
 
 from .backend import (
+    AvConfig,
+    AvState,
     Backend,
     ClimateState,
     LightState,
@@ -90,11 +92,17 @@ class PyControl4Backend(Backend):
         self._skylights: dict[tuple[str, str], list[int]] = {}  # (room, device) -> ids
         self._skylight_cache: dict[tuple[str, str], SkylightState] = {}
 
+        # AV maps
+        self._av_rooms: dict[tuple[str, str], int] = {}                # (room, device) -> c4_room_id
+        self._av_sources: dict[tuple[str, str], dict[str, int]] = {}   # (room, device) -> {source_name: c4_id}
+        self._av_cache: dict[tuple[str, str], AvState] = {}
+
     async def init(
         self,
         rooms: list[RoomConfig],
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
+        avs: list[AvConfig] | None = None,
     ) -> None:
         for r in rooms:
             self._room_lights[r.room] = list(r.light_ids)
@@ -105,6 +113,10 @@ class PyControl4Backend(Backend):
         for s in skylights or []:
             self._skylights[(s.room, s.device)] = list(s.item_ids)
             self._skylight_cache[(s.room, s.device)] = SkylightState(position=0, online=True)
+        for a in avs or []:
+            self._av_rooms[(a.room, a.device)] = a.c4_room_id
+            self._av_sources[(a.room, a.device)] = dict(a.sources)
+            self._av_cache[(a.room, a.device)] = AvState(online=True)
 
         self._cloud_session = aiohttp.ClientSession()
         ssl_ctx = ssl.create_default_context()
@@ -118,11 +130,12 @@ class PyControl4Backend(Backend):
         await self._refresh_all_state()
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info(
-            "ready: %d rooms / %d lights / %d thermostats / %d skylight groups / %d scenes",
+            "ready: %d rooms / %d lights / %d thermostats / %d skylight groups / %d AV rooms / %d scenes",
             len(self._room_lights),
             sum(len(v) for v in self._room_lights.values()),
             len(self._thermostats),
             len(self._skylights),
+            len(self._av_rooms),
             len(self.scene_ids),
         )
 
@@ -396,6 +409,131 @@ class PyControl4Backend(Backend):
         )
 
     # ------------------------------------------------------------------
+    # AV (room-centric Control4 source routing)
+    # ------------------------------------------------------------------
+
+    async def get_av_state(self, room: str, device: str) -> AvState:
+        return self._av_cache.get((room, device), AvState(online=False))
+
+    async def watch_av(self, room: str, device: str, source: str) -> AvState:
+        c4_room_id = self._av_rooms.get((room, device))
+        if not c4_room_id:
+            raise KeyError(f"no AV room bound to {room}.{device}")
+        sources = self._av_sources.get((room, device), {})
+        source_id = sources.get(source) or sources.get(source.lower())
+        if not source_id:
+            raise KeyError(
+                f"unknown source '{source}' for {room}.{device} (have: {sorted(sources)})"
+            )
+
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        # SELECT_VIDEO_DEVICE takes lowercase deviceid + deselect=0 (start).
+        await self._director.send_post_request(
+            f"/api/v1/items/{c4_room_id}/commands",
+            "SELECT_VIDEO_DEVICE",
+            {"deviceid": int(source_id), "deselect": 0},
+        )
+        log.info("watch_av: room=%s c4_room=%d source=%s (id=%d)", room, c4_room_id, source, source_id)
+
+        new_state = await self._fetch_av_state(room, device)
+        # The Director can take a few seconds to update CURRENT_VIDEO_DEVICE,
+        # so blend in what we just commanded so the echo is meaningful.
+        new_state.power = True
+        new_state.current_source = source
+        new_state.current_device_id = source_id
+        self._av_cache[(room, device)] = new_state
+        return new_state
+
+    async def av_off(self, room: str, device: str) -> AvState:
+        c4_room_id = self._av_rooms.get((room, device))
+        if not c4_room_id:
+            raise KeyError(f"no AV room bound to {room}.{device}")
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        await self._director.send_post_request(
+            f"/api/v1/items/{c4_room_id}/commands",
+            "ROOM_OFF",
+            {},
+        )
+        log.info("av_off: room=%s c4_room=%d", room, c4_room_id)
+        state = AvState(power=False, current_source=None, current_device_id=0, online=True)
+        self._av_cache[(room, device)] = state
+        return state
+
+    async def set_av_volume(self, room: str, device: str, level: int) -> AvState:
+        c4_room_id = self._av_rooms.get((room, device))
+        if not c4_room_id:
+            raise KeyError(f"no AV room bound to {room}.{device}")
+        target = max(0, min(100, int(level)))
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        await self._director.send_post_request(
+            f"/api/v1/items/{c4_room_id}/commands",
+            "SET_VOLUME_LEVEL",
+            {"LEVEL": target},
+        )
+        cur = self._av_cache.get((room, device)) or AvState(online=True)
+        cur.volume = target
+        cur.online = True
+        self._av_cache[(room, device)] = cur
+        return cur
+
+    async def set_av_mute(self, room: str, device: str, muted: bool) -> AvState:
+        c4_room_id = self._av_rooms.get((room, device))
+        if not c4_room_id:
+            raise KeyError(f"no AV room bound to {room}.{device}")
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        await self._director.send_post_request(
+            f"/api/v1/items/{c4_room_id}/commands",
+            "MUTE_ON" if muted else "MUTE_OFF",
+            {},
+        )
+        cur = self._av_cache.get((room, device)) or AvState(online=True)
+        cur.muted = bool(muted)
+        self._av_cache[(room, device)] = cur
+        return cur
+
+    async def _fetch_av_state(self, room: str, device: str) -> AvState:
+        c4_room_id = self._av_rooms.get((room, device))
+        if not c4_room_id:
+            return AvState(online=False)
+        await self._ensure_token_fresh()
+        assert self._director is not None
+
+        async def _read(var: str) -> str | None:
+            try:
+                return await self._director.get_item_variable_value(c4_room_id, var)
+            except Exception:
+                return None
+
+        power_raw = await _read("POWER_STATE")
+        video_id = await _read("CURRENT_VIDEO_DEVICE")
+        vol_raw = await _read("CURRENT_VOLUME")
+        muted_raw = await _read("IS_MUTED")
+
+        def _int(v: str | None, default: int = 0) -> int:
+            try:
+                return int(v) if v is not None else default
+            except (TypeError, ValueError):
+                return default
+
+        cur_id = _int(video_id)
+        sources = self._av_sources.get((room, device), {})
+        name_of = next((n for n, sid in sources.items() if sid == cur_id), None)
+        vol = _int(vol_raw, -1)
+
+        return AvState(
+            power=_int(power_raw) > 0,
+            current_source=name_of,
+            current_device_id=cur_id,
+            volume=max(0, vol),
+            muted=_int(muted_raw) > 0,
+            online=True,
+        )
+
+    # ------------------------------------------------------------------
 
     async def _poll_loop(self) -> None:
         while True:
@@ -427,6 +565,13 @@ class PyControl4Backend(Backend):
                 self._climate_cache[device] = await self._fetch_climate_state(device)
             except Exception as err:
                 log.debug("refresh climate %s: %s", device, err)
+
+        for key in list(self._av_rooms.keys()):
+            room, device = key
+            try:
+                self._av_cache[key] = await self._fetch_av_state(room, device)
+            except Exception as err:
+                log.debug("refresh av %s.%s: %s", room, device, err)
 
     async def _fetch_room_state(self, room: str) -> LightState:
         light_ids = self._room_lights.get(room) or []

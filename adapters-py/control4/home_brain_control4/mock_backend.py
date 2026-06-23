@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from .backend import (
+    AvConfig,
+    AvState,
     Backend,
     ClimateState,
     LightState,
@@ -28,6 +30,8 @@ class MockBackend(Backend):
         self._lights: dict[str, LightState] = {}
         self._climate: dict[str, ClimateState] = {}  # keyed by device slot
         self._skylights: dict[tuple[str, str], SkylightState] = {}  # (room, device)
+        self._avs: dict[tuple[str, str], AvState] = {}
+        self._av_sources: dict[tuple[str, str], dict[str, int]] = {}
         self._external_handler: Callable[[str, LightState], None] | None = None
 
     async def init(
@@ -35,6 +39,7 @@ class MockBackend(Backend):
         rooms: list[RoomConfig],
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
+        avs: list[AvConfig] | None = None,
     ) -> None:
         for r in rooms:
             self._lights[r.room] = LightState(on=False, brightness=0, online=True)
@@ -49,6 +54,9 @@ class MockBackend(Backend):
             )
         for s in skylights or []:
             self._skylights[(s.room, s.device)] = SkylightState(position=0, online=True)
+        for a in avs or []:
+            self._avs[(a.room, a.device)] = AvState(online=True)
+            self._av_sources[(a.room, a.device)] = dict(a.sources)
 
     # Lights ----------------------------------------------------------------
 
@@ -130,10 +138,44 @@ class MockBackend(Backend):
         s.position = max(0, min(100, int(position)))
         return s
 
+    # AV --------------------------------------------------------------------
+
+    async def get_av_state(self, room: str, device: str) -> AvState:
+        return self._require_av(room, device)
+
+    async def watch_av(self, room: str, device: str, source: str) -> AvState:
+        s = self._require_av(room, device)
+        sources = self._av_sources.get((room, device), {})
+        if source not in sources:
+            raise KeyError(f"unknown source '{source}' for {room}.{device} (have: {list(sources)})")
+        s.power = True
+        s.current_source = source
+        s.current_device_id = sources[source]
+        return s
+
+    async def av_off(self, room: str, device: str) -> AvState:
+        s = self._require_av(room, device)
+        s.power = False
+        s.current_source = None
+        s.current_device_id = 0
+        return s
+
+    async def set_av_volume(self, room: str, device: str, level: int) -> AvState:
+        s = self._require_av(room, device)
+        s.volume = max(0, min(100, int(level)))
+        return s
+
+    async def set_av_mute(self, room: str, device: str, muted: bool) -> AvState:
+        s = self._require_av(room, device)
+        s.muted = bool(muted)
+        return s
+
     async def close(self) -> None:
         self._lights.clear()
         self._climate.clear()
         self._skylights.clear()
+        self._avs.clear()
+        self._av_sources.clear()
 
     def _require_light(self, room: str) -> LightState:
         if room not in self._lights:
@@ -149,3 +191,8 @@ class MockBackend(Backend):
         if (room, device) not in self._skylights:
             raise KeyError(f"unknown skylight: {room}.{device}")
         return self._skylights[(room, device)]
+
+    def _require_av(self, room: str, device: str) -> AvState:
+        if (room, device) not in self._avs:
+            raise KeyError(f"unknown av: {room}.{device}")
+        return self._avs[(room, device)]
