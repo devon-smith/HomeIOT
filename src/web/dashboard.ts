@@ -470,13 +470,14 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     html[data-theme="light"] .bottom-nav { background: linear-gradient(180deg, rgba(245,243,238,0), rgba(245,243,238,0.95) 38%); }
     @media (min-width: 1000px) { .bottom-nav { display: none; } }
     .nav-btn {
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      color: var(--text-faint-2); min-height: 44px; min-width: 56px; padding: 4px 8px;
-      border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--text-faint-2); min-height: 44px; min-width: 48px; padding: 4px 6px;
+      border-radius: 10px; flex: 1;
     }
     .nav-btn.active { color: var(--accent-amber-light); }
-    .nav-btn svg { width: 22px; height: 22px; }
-    .nav-btn-label { font-size: 10px; font-weight: 600; }
+    .nav-btn svg { width: 20px; height: 20px; }
+    .nav-btn-label { font-size: 9.5px; font-weight: 600; }
+    .bottom-nav { padding: 12px 6px calc(18px + var(--safe-bottom)); }
 
     /* ============ DESKTOP SIDEBAR ============ */
     .desktop-sidebar {
@@ -580,7 +581,6 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     /* ============ SHEET / SECTIONS ============ */
     .section { display: none; }
     .section.active { display: block; }
-    @media (min-width: 1000px) { .section.home { display: block !important; } .section.activity, .section.search { display: none !important; } }
 
     .sheet-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
@@ -621,6 +621,221 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: var(--text-hi); border: 4px solid var(--accent); cursor: pointer; }
 
     .source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+    /* ============ PAGES (Spaces / Lighting) ============ */
+    .page-head { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; margin-bottom: 14px; }
+    .page-title { font-family: var(--font-serif); font-style: italic; font-weight: 500; font-size: 24px; color: var(--text-hi); }
+    @media (min-width: 1000px) { .page-title { font-size: 26px; } }
+
+    /* ---- Spaces: segmented tabs ---- */
+    .space-tabs {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+      margin-bottom: 16px;
+    }
+    .space-tab {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 12px 6px; border-radius: 13px; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 11px; font-weight: 600;
+      transition: background 120ms, border-color 120ms;
+    }
+    .space-tab svg { color: var(--text-muted); }
+    .space-tab .space-tab-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+    .space-tab.active {
+      background: linear-gradient(165deg, rgba(208,125,73,0.12), rgba(232,210,176,0.02));
+      border-color: rgba(208,125,73,0.34); color: var(--text-hi);
+    }
+    .space-tab.active svg { color: var(--accent-warm-light); }
+    .space-tab.active .space-tab-dot { background: var(--accent-warm); box-shadow: 0 0 6px rgba(208,125,73,0.7); }
+
+    /* ---- Big circular ring (hot tub / pool / sauna) ---- */
+    .ring-block { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; }
+    .ring { position: relative; width: 188px; height: 188px; }
+    .ring svg { width: 100%; height: 100%; }
+    .ring .ring-track { fill: none; stroke: rgba(232,210,176,0.1); stroke-width: 8; }
+    .ring .ring-fill  { fill: none; stroke-width: 8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 66px 66px; }
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .ring-glyph { display: flex; margin-bottom: 6px; }
+    .ring-temp { font-family: var(--font-serif); font-size: 50px; line-height: 1; color: var(--text-hi); }
+    .ring-temp-suffix { font-size: 18px; color: var(--text-muted-2); }
+    .ring-status {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      margin-top: 6px;
+    }
+    .step-row { display: flex; align-items: center; justify-content: center; gap: 26px; margin-top: 6px; }
+    .step-btn {
+      width: 50px; height: 50px; border-radius: 50%;
+      border: 1px solid var(--border-strong); background: var(--card);
+      color: var(--text-body); font-size: 24px;
+    }
+    .step-btn:hover { background: var(--card-strong); }
+    .step-target { text-align: center; }
+    .step-target-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint-2); }
+    .step-target-val { font-family: var(--font-serif); font-size: 32px; color: var(--text-hi); line-height: 1.1; }
+
+    .toggle-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 16px; margin-top: 12px;
+      border-radius: 16px; background: var(--card); border: 1px solid var(--border);
+    }
+    .toggle-card-title { font-size: 13.5px; color: var(--text-body-2); font-weight: 600; }
+    .switch {
+      width: 46px; height: 28px; border-radius: 99px; padding: 3px;
+      display: inline-flex; align-items: center; cursor: pointer;
+      background: var(--card-strong); border: 1px solid var(--border-strong);
+      transition: background 120ms;
+    }
+    .switch.on { background: var(--accent); border-color: var(--accent); justify-content: flex-end; }
+    .switch-knob { width: 22px; height: 22px; border-radius: 50%; background: var(--text-hi); transition: transform 120ms; }
+
+    .info-strip {
+      display: flex; align-items: center; gap: 10px; margin-top: 12px;
+      padding: 13px 16px; border-radius: 14px;
+      background: linear-gradient(120deg, rgba(208,125,73,0.10), rgba(232,210,176,0.02));
+      border: 1px solid rgba(208,125,73,0.18);
+    }
+    .info-strip-text { font-size: 12.5px; color: var(--text-body-3); }
+    .info-strip svg { color: var(--accent-warm); }
+
+    /* ---- Theater screen + sources ---- */
+    .theater-screen {
+      position: relative; aspect-ratio: 16/9; border-radius: 18px; overflow: hidden;
+      background: linear-gradient(150deg, #1c2230, #0c0e14); border: 1px solid var(--border-strong);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .theater-screen::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(120% 90% at 50% 0%, rgba(120,150,210,0.18), transparent 60%);
+    }
+    .theater-screen-text { position: relative; text-align: center; }
+    .theater-screen-eye { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d97ad; }
+    .theater-screen-title { font-family: var(--font-serif); font-style: italic; font-size: 21px; color: #e8eefb; margin-top: 5px; }
+    .theater-screen .live-corner {
+      position: absolute; left: 12px; top: 12px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green);
+    }
+    .src-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .src-chip {
+      padding: 9px 14px; border-radius: 11px; font-size: 12.5px; font-weight: 600;
+      background: var(--card); border: 1px solid var(--border-strong); color: var(--text-secondary);
+    }
+    .src-chip.active { background: var(--accent); color: var(--accent-on); border-color: var(--accent); }
+    .src-chip:hover:not(.active) { background: var(--card-strong); color: var(--text-hi); }
+
+    .av-controls {
+      margin-top: 16px; padding: 15px 16px; border-radius: 16px;
+      background: var(--card); border: 1px solid var(--border);
+    }
+    .av-row { display: flex; align-items: center; gap: 12px; }
+    .av-row svg { color: var(--text-muted); flex-shrink: 0; }
+    .av-row input[type=range] { flex: 1; }
+    .av-row-val { font-family: var(--font-mono); font-size: 11px; color: var(--accent-amber-light); width: 30px; text-align: right; }
+
+    /* ---- Lighting page ---- */
+    .lighting-sub {
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--text-faint);
+    }
+    .ambience-hero {
+      position: relative; overflow: hidden; border-radius: 22px; padding: 18px;
+      background: linear-gradient(150deg, rgba(227,160,111,0.22), rgba(217,168,90,0.06) 60%, rgba(232,210,176,0.02));
+      border: 1px solid rgba(227,160,111,0.2);
+      margin-bottom: 4px;
+    }
+    .ambience-hero::before {
+      content: ''; position: absolute; right: -30px; top: -30px; width: 150px; height: 150px;
+      border-radius: 50%; background: radial-gradient(circle, rgba(231,189,122,0.4), transparent 68%);
+      pointer-events: none;
+    }
+    .ambience-head { position: relative; display: flex; justify-content: space-between; align-items: flex-start; }
+    .ambience-eye { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #caa173; }
+    .ambience-name { font-family: var(--font-serif); font-style: italic; font-size: 27px; color: #f7eddd; margin-top: 4px; }
+    .ambience-state { font-family: var(--font-mono); font-size: 10px; color: #caa173; margin-top: 4px; }
+    .ambience-icon {
+      width: 42px; height: 42px; border-radius: 13px;
+      background: rgba(231,189,122,0.2); color: #f0cd92;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ambience-slider { position: relative; margin-top: 18px; }
+    .ambience-slider-head { display: flex; justify-content: space-between; margin-bottom: 9px; }
+    .ambience-slider-label { font-size: 12.5px; color: var(--text-body-3); font-weight: 600; }
+    .ambience-slider-val { font-family: var(--font-mono); font-size: 12px; color: #f0cd92; }
+    .light-scenes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (min-width: 760px) { .light-scenes { grid-template-columns: 1fr 1fr 1fr; } }
+    .light-scene {
+      padding: 13px; border-radius: 15px; cursor: pointer; text-align: left;
+      background: var(--card); border: 1px solid var(--border);
+      transition: background 120ms;
+    }
+    .light-scene.active {
+      background: linear-gradient(150deg, rgba(208,125,73,0.16), rgba(232,210,176,0.02));
+      border-color: rgba(208,125,73,0.3);
+    }
+    .light-scene-preview { height: 7px; border-radius: 5px; margin-bottom: 11px; }
+    .light-scene-head { display: flex; align-items: center; justify-content: space-between; }
+    .light-scene-name { font-size: 13.5px; color: var(--text-hi); font-weight: 600; }
+    .light-scene-dot { width: 8px; height: 8px; border-radius: 50%; background: transparent; border: 1px solid var(--border-strong); }
+    .light-scene.active .light-scene-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px rgba(208,125,73,0.7); }
+    .light-scene-meta { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-faint); margin-top: 3px; }
+
+    .whole-home-btn {
+      width: 100%; text-align: left; padding: 14px 16px;
+      border-radius: 14px; cursor: pointer; font-size: 13.5px; font-weight: 600;
+      background: var(--card); border: 1px solid var(--border); color: var(--text-secondary);
+    }
+    .whole-home-btn.active {
+      color: var(--text-hi);
+      background: linear-gradient(120deg, rgba(208,125,73,0.16), rgba(232,210,176,0.02));
+      border-color: rgba(208,125,73,0.45);
+    }
+    .light-zones { display: flex; flex-direction: column; gap: 10px; }
+    @media (min-width: 1000px) { .light-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } }
+    .light-zone {
+      padding: 14px 15px; border-radius: 16px; cursor: pointer;
+      background: var(--card); border: 1px solid var(--border);
+      transition: border-color 120ms;
+    }
+    .light-zone.on {
+      background: linear-gradient(120deg, rgba(231,189,122,0.10), rgba(232,210,176,0.02));
+      border-color: rgba(231,189,122,0.22);
+    }
+    .light-zone.selected {
+      background: linear-gradient(120deg, rgba(208,125,73,0.16), rgba(232,210,176,0.02));
+      border-color: rgba(208,125,73,0.45);
+      box-shadow: 0 0 0 1px rgba(208,125,73,0.22);
+    }
+    .light-zone-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+    .light-zone-name { font-size: 14px; color: var(--text-hi); font-weight: 600; }
+    .light-zone-state { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .light-zone-state.on { color: #caa173; }
+    .light-zone-slider { display: flex; align-items: center; gap: 11px; }
+    .light-zone-slider svg { color: var(--text-faint-2); }
+    .light-zone-bri { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted-2); width: 28px; text-align: right; }
+    .zone-toggle {
+      width: 38px; height: 38px; border-radius: 11px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .zone-toggle.on { background: rgba(231,189,122,0.2); color: #f0cd92; border: none; }
+    .zone-toggle.off { background: var(--card-strong); border: 1px solid var(--border-strong); color: #6a5f54; }
+
+    .pool-color-row { display: flex; gap: 10px; }
+    .pool-color {
+      width: 38px; height: 38px; border-radius: 11px; cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .pool-color.active { border-color: var(--text-hi); }
+
+    .preset-row { display: flex; gap: 8px; }
+    .preset-btn {
+      padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      background: var(--card-strong); border: 1px solid var(--border-strong); color: var(--text-secondary);
+    }
+    .preset-btn:hover { background: var(--card); color: var(--text-hi); }
+    .preset-btn.active { background: var(--accent); color: var(--accent-on); border-color: var(--accent); }
 
     /* ============ TOAST ============ */
     .toast-container {
@@ -672,6 +887,14 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
         <button class="sidebar-nav-btn active" data-section="home">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M4 11 12 4l8 7M6 9.5V20h12V9.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           <span>Home</span>
+        </button>
+        <button class="sidebar-nav-btn" data-section="spaces">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M12 3s5 5.4 5 9a5 5 0 0 1-10 0c0-3.6 5-9 5-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>Spaces</span>
+        </button>
+        <button class="sidebar-nav-btn" data-section="lighting">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M9 18h6M10.5 21h3M12 3a6 6 0 0 1 3.7 10.7c-.5.4-.7 1-.7 1.6v.2H9v-.2c0-.6-.2-1.2-.7-1.6A6 6 0 0 1 12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <span>Lighting</span>
         </button>
         <button class="sidebar-nav-btn" data-section="activity">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 14 2-8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -776,6 +999,32 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
         <div class="search-results" id="search-results"></div>
       </section>
 
+      <!-- ============ SPACES SECTION ============ -->
+      <section class="section spaces" data-section="spaces">
+        <div class="page-head">
+          <h2 class="page-title">Spaces</h2>
+        </div>
+        <div class="space-tabs" id="space-tabs"></div>
+        <div id="space-content"></div>
+      </section>
+
+      <!-- ============ LIGHTING SECTION ============ -->
+      <section class="section lighting" data-section="lighting">
+        <div class="page-head">
+          <h2 class="page-title">Lighting</h2>
+          <div class="lighting-sub" id="lighting-sub">— of — lights on</div>
+        </div>
+        <div id="lighting-ambience"></div>
+        <div class="section-head"><span class="section-label">Scenes</span></div>
+        <div class="light-scenes" id="light-scenes"></div>
+        <div class="section-head" style="margin-top: 22px;"><span class="section-label">Focus</span></div>
+        <button class="whole-home-btn" id="whole-home-btn" onclick="window.lightSelectZone('all')">Whole home · master brightness</button>
+        <div class="section-head" style="margin-top: 22px;"><span class="section-label">Indoor</span></div>
+        <div class="light-zones" id="light-indoor"></div>
+        <div class="section-head" style="margin-top: 22px;"><span class="section-label">Outdoor</span></div>
+        <div class="light-zones" id="light-outdoor"></div>
+      </section>
+
     </main>
 
     <!-- ============ DESKTOP RIGHT RAIL ============ -->
@@ -797,6 +1046,14 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     <button class="nav-btn active" data-section="home">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 11 12 4l8 7M6 9.5V20h12V9.5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
       <span class="nav-btn-label">Home</span>
+    </button>
+    <button class="nav-btn" data-section="spaces">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 3s5 5.4 5 9a5 5 0 0 1-10 0c0-3.6 5-9 5-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span class="nav-btn-label">Spaces</span>
+    </button>
+    <button class="nav-btn" data-section="lighting">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M9 18h6M10.5 21h3M12 3a6 6 0 0 1 3.7 10.7c-.5.4-.7 1-.7 1.6v.2H9v-.2c0-.6-.2-1.2-.7-1.6A6 6 0 0 1 12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span class="nav-btn-label">Lights</span>
     </button>
     <button class="nav-btn" data-section="activity">
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 14 2-8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1592,12 +1849,291 @@ $('search-input')?.addEventListener('input', (e) => {
     : (q ? '<div class="empty">no matches</div>' : '');
 });
 
+// ===== SPACES PAGE =====
+let SPACE_TAB = null; // 'theater' | 'hottub' | 'pool' | 'sauna'
+function spacesAvailable() {
+  const list = [];
+  if (HOUSE?.rooms?.theater?.devices?.includes('av')) list.push({ id: 'theater', label: 'Theater', kind: 'av' });
+  const tub = findRoomWith('hot_tub');
+  if (tub) list.push({ id: 'hottub', label: 'Hot tub', kind: 'hottub', room: tub });
+  const pool = findRoomWith('pool');
+  if (pool) list.push({ id: 'pool', label: 'Pool', kind: 'pool', room: pool });
+  const sauna = findRoomWith('sauna');
+  if (sauna) list.push({ id: 'sauna', label: 'Sauna', kind: 'sauna', room: sauna });
+  return list;
+}
+function renderSpaces() {
+  const items = spacesAvailable();
+  if (!items.length) {
+    $('space-tabs').innerHTML = '';
+    $('space-content').innerHTML = '<div class="empty">no spaces configured</div>';
+    return;
+  }
+  if (!SPACE_TAB || !items.find(x => x.id === SPACE_TAB)) SPACE_TAB = items[0].id;
+  const ICONS_SPACE = {
+    theater: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M7 5v14M17 5v14" stroke="currentColor" stroke-width="1.6"/></svg>',
+    hottub: SVG.hottub,
+    pool: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M2 16c2-1.5 3.5-1.5 5.5 0s3.5 1.5 5.5 0 3.5-1.5 5.5 0M2 20c2-1.5 3.5-1.5 5.5 0s3.5 1.5 5.5 0 3.5-1.5 5.5 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    sauna: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 14c-1-2 .5-3.5 1-4.5M12 14c-1-2 .5-4 1-5.5M16 14c-1-2 .5-3.5 1-4.5M5 17h14v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-2Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  };
+  $('space-tabs').innerHTML = items.map(it => {
+    const isActive = it.id === SPACE_TAB;
+    let dot = 'transparent';
+    if (it.kind === 'av') {
+      const av = HOUSE.rooms.theater ? getState('theater', 'av')?.state ?? {} : {};
+      if (av.power) dot = '#7fae6f';
+    } else if (it.kind === 'hottub' || it.kind === 'pool') {
+      const st = getState(it.room, it.kind === 'hottub' ? 'hot_tub' : 'pool')?.state ?? {};
+      if (st.mode === 'heat' || st.heater_on) dot = '#e3a06f';
+    }
+    return '<button class="space-tab ' + (isActive ? 'active' : '') + '" onclick="window.spacePick(' + jstr(it.id) + ')">' +
+      ICONS_SPACE[it.id] +
+      '<span>' + esc(it.label) + '</span>' +
+      '<span class="space-tab-dot" style="background:' + dot + '"></span>' +
+    '</button>';
+  }).join('');
+  const item = items.find(x => x.id === SPACE_TAB);
+  $('space-content').innerHTML = item ? renderSpaceBody(item) : '';
+}
+window.spacePick = (id) => { SPACE_TAB = id; renderSpaces(); };
+
+function ring(pctOf, fill, glyph, tempVal, tempSuffix, statusText, statusColor) {
+  const C = 2 * Math.PI * 58; // ~364
+  const offset = Math.round(C * (1 - Math.max(0, Math.min(1, pctOf))));
+  return '<div class="ring-block"><div class="ring">' +
+    '<svg viewBox="0 0 132 132">' +
+      '<circle class="ring-track" cx="66" cy="66" r="58"/>' +
+      '<circle class="ring-fill" cx="66" cy="66" r="58" stroke="' + fill + '" stroke-dasharray="' + Math.round(C) + '" stroke-dashoffset="' + offset + '"/>' +
+    '</svg>' +
+    '<div class="ring-center">' +
+      '<span class="ring-glyph" style="color:' + fill + '">' + glyph + '</span>' +
+      '<span class="ring-temp">' + tempVal + (tempSuffix ? '<span class="ring-temp-suffix">' + tempSuffix + '</span>' : '') + '</span>' +
+      '<span class="ring-status" style="color:' + statusColor + '">' + esc(statusText) + '</span>' +
+    '</div>' +
+  '</div></div>';
+}
+
+function renderSpaceBody(item) {
+  if (item.kind === 'av') return renderTheaterSpace();
+  if (item.kind === 'hottub') return renderClimateRingSpace(item.room, 'hot_tub', { unit: '°', tempSuffix: '', minT: 70, maxT: 104, defaultTarget: 102, fill: '#e3a06f', name: 'hot tub' });
+  if (item.kind === 'pool')   return renderClimateRingSpace(item.room, 'pool',    { unit: '°', tempSuffix: '', minT: 60, maxT: 90,  defaultTarget: 85,  fill: '#6f9fc0', name: 'pool' });
+  if (item.kind === 'sauna')  return '<div class="empty">Sauna requires Tuya — wire when ready.</div>';
+  return '';
+}
+
+function renderTheaterSpace() {
+  const av = getState('theater', 'av')?.state ?? {};
+  const lights = getState('theater', 'lights')?.state ?? {};
+  const sourceLabel = av.current_source || (av.power ? 'AV on' : 'off');
+  const sources = HOUSE?.rooms?.theater?.devices?.includes('av')
+    ? Object.keys((HOUSE.rooms.theater?.devices_raw_sources) || {}) : [];
+  // We don't have sources in /house — fall back to common names
+  const knownSources = ['apple_tv', 'xfinity', 'uhd', 'xbox', 'tuner', 'bluetooth'];
+  const vol = av.volume ?? 30;
+  const briTheater = lights.on ? (lights.brightness ?? 0) : 0;
+
+  return '<div class="theater-screen">' +
+      (av.power ? '<span class="live-corner"></span>' : '') +
+      '<div class="theater-screen-text">' +
+        '<div class="theater-screen-eye">' + esc(sourceLabel) + (av.power ? ' · playing' : '') + '</div>' +
+        '<div class="theater-screen-title">' + (av.power ? 'On' : 'Theater off') + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="src-row">' +
+      knownSources.map(s => {
+        const isOn = av.current_source && av.current_source.toLowerCase().replace(/\s+/g, '_') === s;
+        return '<button class="src-chip ' + (isOn ? 'active' : '') + '" onclick="quickSend(' + jstr('watch ' + s.replace(/_/g, ' ') + ' in the theater') + ')">' + esc(s.replace(/_/g, ' ')) + '</button>';
+      }).join('') +
+      '<button class="src-chip" onclick="quickSend(' + jstr('turn off the theater') + ')">Off</button>' +
+    '</div>' +
+    '<div class="av-controls">' +
+      '<div class="av-row">' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 9v6h3.5L13 19V5L7.5 9H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M16 9a4 4 0 0 1 0 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' +
+        '<input type="range" min="0" max="100" value="' + vol + '" oninput="document.getElementById(\'tv-vol\').textContent = this.value" onchange="window.setAvVolume(\'theater\', this.value)" />' +
+        '<span class="av-row-val" id="tv-vol">' + vol + '</span>' +
+      '</div>' +
+      '<div style="height:1px; background:var(--hairline); margin: 14px 0;"></div>' +
+      '<div class="av-row">' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2M12 19v2M21 12h-2M5 12H3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' +
+        '<input type="range" min="0" max="100" value="' + briTheater + '" oninput="document.getElementById(\'tv-bri\').textContent = this.value + \'%\'" onchange="window.setLightSlider(\'theater\', this.value)" />' +
+        '<span class="av-row-val" id="tv-bri" style="color:var(--text-muted-2)">' + briTheater + '%</span>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:flex; gap:10px; margin-top: 14px;">' +
+      '<button class="btn-pill flex muted" onclick="quickSend(' + jstr('dim the theater to 5') + ')">Screen</button>' +
+      '<button class="btn-pill primary" style="flex: 1.3;" onclick="quickSend(' + jstr('movie night in the theater') + ')">Movie Night</button>' +
+    '</div>';
+}
+
+function renderClimateRingSpace(roomSlug, deviceKind, opts) {
+  const st = getState(roomSlug, deviceKind)?.state ?? {};
+  const cur = st.current_f ?? '—';
+  const target = st.target_f ?? opts.defaultTarget;
+  const isHeating = st.mode === 'heat' || st.heater_on === true;
+  const range = opts.maxT - opts.minT;
+  const curNum = typeof cur === 'number' ? cur : opts.minT;
+  const progress = Math.max(0, Math.min(1, (curNum - opts.minT) / range));
+  const statusText = isHeating ? 'warming' : (st.mode || 'idle');
+  const statusColor = isHeating ? opts.fill : '#8d8073';
+  const glyph = deviceKind === 'hot_tub' ? SVG.hottub : (
+    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M2 16c2-1.5 3.5-1.5 5.5 0s3.5 1.5 5.5 0 3.5-1.5 5.5 0M2 20c2-1.5 3.5-1.5 5.5 0s3.5 1.5 5.5 0 3.5-1.5 5.5 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  const ringHtml = ring(progress, opts.fill, glyph, cur + opts.unit, '', statusText, statusColor);
+  return ringHtml +
+    '<div class="step-row">' +
+      '<button class="step-btn" onclick="quickSend(' + jstr('lower the ' + opts.name + ' target by 2') + ')">–</button>' +
+      '<div class="step-target"><div class="step-target-label">Target</div><div class="step-target-val">' + target + opts.unit + '</div></div>' +
+      '<button class="step-btn" onclick="quickSend(' + jstr('warm the ' + opts.name + ' to ' + (target + 2)) + ')">+</button>' +
+    '</div>' +
+    '<div class="toggle-card">' +
+      '<span class="toggle-card-title">Heater</span>' +
+      '<div class="switch ' + (isHeating ? 'on' : '') + '" onclick="quickSend(' + jstr(isHeating ? 'turn the ' + opts.name + ' off' : 'warm the ' + opts.name + ' to ' + target) + ')"><span class="switch-knob"></span></div>' +
+    '</div>' +
+    '<div class="info-strip">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M12 9v4l2.5 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' +
+      '<span class="info-strip-text">' + (isHeating ? '~' + Math.max(1, Math.round((target - curNum) * 3)) + ' min to target' : 'Idle — tap heater to warm to ' + target + opts.unit) + '</span>' +
+    '</div>';
+}
+
+// ===== LIGHTING PAGE =====
+let LIGHT_SELECTED = 'all';   // 'all' or room slug
+let LIGHT_SCENE = null;
+const LIGHT_SCENES = [
+  { label: 'Evening Warm', meta: 'warm · 35%',   preview: 'linear-gradient(90deg,#5e3a2e,#e3a06f)',  msg: 'set the house to evening warm — 35% with warm light' },
+  { label: 'Bright',       meta: 'cool · 100%',  preview: 'linear-gradient(90deg,#cfd8e6,#ffffff)',  msg: 'turn all the lights on at 100%' },
+  { label: 'Reading',      meta: 'neutral · 70%',preview: 'linear-gradient(90deg,#e3a06f,#fbf4e4)',  msg: 'dim all lights to 70% for reading' },
+  { label: 'Movie Dim',    meta: 'warm · 8%',    preview: 'linear-gradient(90deg,#241a14,#7a4a36)',  msg: 'dim all lights to 8% for movie' },
+  { label: 'Relax',        meta: 'warm · 20%',   preview: 'linear-gradient(90deg,#3a2218,#c98a5a)',  msg: 'dim all lights to 20% for relax' },
+  { label: 'All Off',      meta: 'everything off',preview: 'linear-gradient(90deg,#1a140f,#322a22)', msg: 'turn off all the lights' },
+];
+
+function lightZones() {
+  if (!HOUSE) return { indoor: [], outdoor: [] };
+  const indoorSet = new Set(HOUSE.zones?.indoor || []);
+  const outdoorSet = new Set(HOUSE.zones?.outdoor || []);
+  const indoor = [], outdoor = [];
+  for (const slug of Object.keys(HOUSE.rooms)) {
+    if (!HOUSE.rooms[slug].devices.includes('lights')) continue;
+    const st = getState(slug, 'lights')?.state ?? {};
+    const z = { slug, name: HOUSE.rooms[slug].label, bri: st.on ? (st.brightness ?? 0) : 0, on: !!st.on };
+    if (outdoorSet.has(slug)) outdoor.push(z);
+    else indoor.push(z); // default to indoor
+  }
+  indoor.sort((a, b) => a.name.localeCompare(b.name));
+  outdoor.sort((a, b) => a.name.localeCompare(b.name));
+  return { indoor, outdoor };
+}
+
+function renderLighting() {
+  if (!HOUSE) return;
+  const { indoor, outdoor } = lightZones();
+  const all = [...indoor, ...outdoor];
+  const onCount = all.filter(z => z.on).length;
+  $('lighting-sub').textContent = onCount + ' of ' + all.length + ' lights on';
+
+  // Ambience hero
+  let selName, selBri, selState;
+  if (LIGHT_SELECTED === 'all') {
+    selName = 'Whole home';
+    const onArr = all.filter(z => z.on);
+    const avg = onArr.length ? Math.round(onArr.reduce((s, z) => s + z.bri, 0) / onArr.length) : 0;
+    selBri = avg;
+    selState = onCount + ' of ' + all.length + ' lights on';
+  } else {
+    const z = all.find(x => x.slug === LIGHT_SELECTED);
+    selName = z?.name || '—';
+    selBri = z?.bri ?? 0;
+    selState = z?.on ? ('On · ' + z.bri + '%') : 'Off';
+  }
+  $('lighting-ambience').innerHTML =
+    '<div class="ambience-hero">' +
+      '<div class="ambience-head">' +
+        '<div>' +
+          '<div class="ambience-eye">Selected room</div>' +
+          '<div class="ambience-name">' + esc(selName) + '</div>' +
+          '<div class="ambience-state">' + esc(selState) + '</div>' +
+        '</div>' +
+        '<span class="ambience-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.4" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2.4M12 19.1v2.4M21.5 12h-2.4M4.9 12H2.5M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>' +
+      '</div>' +
+      '<div class="ambience-slider">' +
+        '<div class="ambience-slider-head">' +
+          '<span class="ambience-slider-label">Brightness</span>' +
+          '<span class="ambience-slider-val" id="amb-bri">' + selBri + '%</span>' +
+        '</div>' +
+        '<input type="range" min="0" max="100" value="' + selBri + '" oninput="document.getElementById(\'amb-bri\').textContent = this.value + \'%\'" onchange="window.lightAmbience(this.value)" />' +
+      '</div>' +
+    '</div>';
+
+  // Scenes
+  $('light-scenes').innerHTML = LIGHT_SCENES.map(sc => {
+    const active = sc.label === LIGHT_SCENE;
+    return '<button class="light-scene ' + (active ? 'active' : '') + '" onclick="window.lightScene(' + jstr(sc.label) + ', ' + jstr(sc.msg) + ')">' +
+      '<div class="light-scene-preview" style="background:' + sc.preview + '"></div>' +
+      '<div class="light-scene-head"><span class="light-scene-name">' + esc(sc.label) + '</span><span class="light-scene-dot"></span></div>' +
+      '<div class="light-scene-meta">' + esc(sc.meta) + '</div>' +
+    '</button>';
+  }).join('');
+
+  // Whole-home button
+  $('whole-home-btn').className = 'whole-home-btn' + (LIGHT_SELECTED === 'all' ? ' active' : '');
+
+  // Zones
+  const zoneHtml = (z) => '<div class="light-zone ' + (z.on ? 'on' : '') + (z.slug === LIGHT_SELECTED ? ' selected' : '') + '" onclick="window.lightSelectZone(' + jstr(z.slug) + ')">' +
+    '<div class="light-zone-head">' +
+      '<div><div class="light-zone-name">' + esc(z.name) + '</div><div class="light-zone-state ' + (z.on ? 'on' : '') + '">' + (z.on ? 'On · ' + z.bri + '%' : 'Off') + '</div></div>' +
+      '<button class="zone-toggle ' + (z.on ? 'on' : 'off') + '" onclick="event.stopPropagation(); window.lightToggleZone(' + jstr(z.slug) + ', ' + (z.on ? 'true' : 'false') + ')">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18h6M10.5 21h3M12 3a6 6 0 0 1 3.7 10.7c-.5.4-.7 1-.7 1.6v.2H9v-.2c0-.6-.2-1.2-.7-1.6A6 6 0 0 1 12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' +
+      '</button>' +
+    '</div>' +
+    '<div class="light-zone-slider" onclick="event.stopPropagation()">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2M12 19v2M21 12h-2M5 12H3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>' +
+      '<input type="range" min="0" max="100" value="' + z.bri + '" oninput="this.nextElementSibling.textContent = this.value + (this.value>0?\'%\':\'\')" onchange="window.setLightSlider(' + jstr(z.slug) + ', this.value)" />' +
+      '<span class="light-zone-bri">' + (z.on ? z.bri + '%' : 'off') + '</span>' +
+    '</div>' +
+  '</div>';
+  $('light-indoor').innerHTML = indoor.length ? indoor.map(zoneHtml).join('') : '<div class="empty">no indoor light zones</div>';
+  $('light-outdoor').innerHTML = outdoor.length ? outdoor.map(zoneHtml).join('') : '<div class="empty">no outdoor light zones</div>';
+}
+
+window.lightSelectZone = (slug) => { LIGHT_SELECTED = slug; renderLighting(); };
+window.lightToggleZone = (slug, currentlyOn) => {
+  const pretty = HOUSE.rooms[slug].label.toLowerCase();
+  const cmd = currentlyOn === true || currentlyOn === 'true'
+    ? 'turn off the ' + pretty + ' lights'
+    : 'turn on the ' + pretty + ' lights';
+  applyOptimistic(slug, 'lights', currentlyOn === true || currentlyOn === 'true' ? { on: false, brightness: 0 } : { on: true, brightness: 50 });
+  send(cmd, { silent: true });
+};
+window.lightAmbience = (v) => {
+  v = +v;
+  if (LIGHT_SELECTED === 'all') {
+    // dim every room with lights
+    for (const slug of Object.keys(HOUSE.rooms)) {
+      if (HOUSE.rooms[slug].devices.includes('lights')) {
+        applyOptimistic(slug, 'lights', { on: v > 0, brightness: v });
+      }
+    }
+    send(v === 0 ? 'turn off all the lights' : 'dim all the lights to ' + v, { silent: true });
+  } else {
+    applyOptimistic(LIGHT_SELECTED, 'lights', { on: v > 0, brightness: v });
+    send('dim the ' + HOUSE.rooms[LIGHT_SELECTED].label.toLowerCase() + ' lights to ' + v, { silent: true });
+  }
+};
+window.lightScene = (label, msg) => {
+  LIGHT_SCENE = label;
+  const snapshot = JSON.parse(JSON.stringify(WORLD));
+  send(msg, { silent: true });
+  toast('Scene: ' + label, { undo: () => doUndo(snapshot, label) });
+  renderLighting();
+};
+
 function renderAll() {
   renderHero();
   renderQuickRow();
   renderNowRow();
   renderClimate();
   renderRooms();
+  renderSpaces();
+  renderLighting();
   if (CURRENT_SHEET) renderSheet();
 }
 async function refresh() {
