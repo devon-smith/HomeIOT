@@ -46,14 +46,14 @@ export const setLights: ToolDef<Args> = {
 
     const cmdId = ctx.bus.publishCommand(args.room, "lights", op, cmdArgs, ctx.actor);
     try {
-      const echo = await ctx.bus.waitForCommand(cmdId, 5000);
+      const echo = await ctx.bus.waitForCommand(cmdId, 10_000);
       const state = echo.state as Record<string, unknown>;
       return { tool: "set_lights", ok: true, message: describe(args, args.room, state), state };
     } catch {
       return {
         tool: "set_lights",
         ok: false,
-        message: `${args.room} lights adapter did not confirm within 5s`,
+        message: `${args.room} lights adapter did not confirm within 10s`,
       };
     }
   },

@@ -47,6 +47,13 @@ log = logging.getLogger("control4.real")
 # Director tokens are valid for 24h. Refresh proactively at 12h.
 TOKEN_REFRESH_S = 12 * 60 * 60
 
+# Per-call HTTP timeouts. Keep these short — the room's tool-side timeout
+# bound (e.g. set_lights waits 8s for the MQTT echo) sets our hard ceiling
+# for *any* slow load not to block the whole room.
+DIRECTOR_CMD_TIMEOUT = 3.5        # POST /commands (set_level, set_setpoint, etc)
+DIRECTOR_READ_TIMEOUT = 2.5       # variable reads
+DIRECTOR_COVER_TIMEOUT = 5.0      # IR covers respond a bit slower
+
 # C4 thermostat mode constants
 _MODE_TO_C4 = {"heat": "Heat", "cool": "Cool", "auto": "Auto", "off": "Off"}
 _C4_TO_MODE = {v.lower(): k for k, v in _MODE_TO_C4.items()}
@@ -218,10 +225,13 @@ class PyControl4Backend(Backend):
 
     async def _set_level(self, item_id: int, level: int) -> None:
         assert self._director is not None
-        await self._director.send_post_request(
-            f"/api/v1/items/{item_id}/commands",
-            "SET_LEVEL",
-            {"LEVEL": level},
+        await asyncio.wait_for(
+            self._director.send_post_request(
+                f"/api/v1/items/{item_id}/commands",
+                "SET_LEVEL",
+                {"LEVEL": level},
+            ),
+            timeout=DIRECTOR_CMD_TIMEOUT,
         )
 
     async def run_room_scene(self, room: str, scene_name: str) -> LightState:
@@ -307,17 +317,33 @@ class PyControl4Backend(Backend):
                 await self._send_setpoint(item_id, "SET_SETPOINT_HEAT", t - 2)
                 await self._send_setpoint(item_id, "SET_SETPOINT_COOL", t + 2)
 
-        # Refresh from Director so the echo reflects reality.
-        new_state = await self._fetch_climate_state(device)
+        # Optimistic state: patch the cache with what we just commanded.
+        # Reading 5 variables back from the Director after every setpoint
+        # change adds ~10s of round-trip and was timing out the MQTT echo.
+        # The next poll cycle (60s) will reconcile to real Director state.
+        new_state = ClimateState(
+            current_f=cur.current_f,
+            heat_setpoint_f=t if (target_f is not None and effective_mode in ("heat", "auto", "off")) else cur.heat_setpoint_f,
+            cool_setpoint_f=t if (target_f is not None and effective_mode in ("cool", "auto", "off")) else cur.cool_setpoint_f,
+            mode=effective_mode if mode is not None else cur.mode,
+            hvac_state=cur.hvac_state,
+            online=True,
+        )
+        if target_f is not None and effective_mode == "auto":
+            new_state.heat_setpoint_f = float(target_f) - 2
+            new_state.cool_setpoint_f = float(target_f) + 2
         self._climate_cache[device] = new_state
         return new_state
 
     async def _send_setpoint(self, item_id: int, command: str, value: float) -> None:
         assert self._director is not None
-        await self._director.send_post_request(
-            f"/api/v1/items/{item_id}/commands",
-            command,
-            {"FAHRENHEIT": int(round(value))},
+        await asyncio.wait_for(
+            self._director.send_post_request(
+                f"/api/v1/items/{item_id}/commands",
+                command,
+                {"FAHRENHEIT": int(round(value))},
+            ),
+            timeout=DIRECTOR_CMD_TIMEOUT,
         )
 
     async def _fetch_climate_state(self, device: str) -> ClimateState:
@@ -329,7 +355,10 @@ class PyControl4Backend(Backend):
 
         async def _read(var: str) -> str | None:
             try:
-                return await self._director.get_item_variable_value(item_id, var)
+                return await asyncio.wait_for(
+                    self._director.get_item_variable_value(item_id, var),
+                    timeout=DIRECTOR_READ_TIMEOUT,
+                )
             except Exception as err:
                 log.debug("thermostat %s read %s failed: %s", item_id, var, err)
                 return None
@@ -402,10 +431,13 @@ class PyControl4Backend(Backend):
 
     async def _send_cover_cmd(self, item_id: int, cmd: str) -> None:
         assert self._director is not None
-        await self._director.send_post_request(
-            f"/api/v1/items/{item_id}/commands",
-            cmd,
-            {},
+        await asyncio.wait_for(
+            self._director.send_post_request(
+                f"/api/v1/items/{item_id}/commands",
+                cmd,
+                {},
+            ),
+            timeout=DIRECTOR_COVER_TIMEOUT,
         )
 
     # ------------------------------------------------------------------
@@ -504,7 +536,10 @@ class PyControl4Backend(Backend):
 
         async def _read(var: str) -> str | None:
             try:
-                return await self._director.get_item_variable_value(c4_room_id, var)
+                return await asyncio.wait_for(
+                    self._director.get_item_variable_value(c4_room_id, var),
+                    timeout=DIRECTOR_READ_TIMEOUT,
+                )
             except Exception:
                 return None
 
@@ -585,7 +620,10 @@ class PyControl4Backend(Backend):
         online_count = 0
         for lid in light_ids:
             try:
-                raw = await self._director.get_item_variable_value(lid, "LIGHT_LEVEL")
+                raw = await asyncio.wait_for(
+                    self._director.get_item_variable_value(lid, "LIGHT_LEVEL"),
+                    timeout=DIRECTOR_READ_TIMEOUT,
+                )
                 level = int(raw)
                 online_count += 1
                 if level > 0:
