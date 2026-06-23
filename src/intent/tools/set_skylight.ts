@@ -60,7 +60,7 @@ export const setSkylight: ToolDef<Args> = {
 
     const cmdId = ctx.bus.publishCommand(args.room, device, "set", { position }, ctx.actor);
     try {
-      const echo = await ctx.bus.waitForCommand(cmdId, 8000);
+      const echo = await ctx.bus.waitForCommand(cmdId, 15000);
       const state = echo.state as Record<string, unknown>;
       const pretty = args.room.replace(/_/g, " ");
       const msg =
@@ -74,7 +74,7 @@ export const setSkylight: ToolDef<Args> = {
       return {
         tool: "set_skylight",
         ok: false,
-        message: `${args.room}.${device} did not confirm within 8s`,
+        message: `${args.room}.${device} did not confirm within 15s`,
       };
     }
   },
