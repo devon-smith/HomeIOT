@@ -10,6 +10,12 @@
 
 timezone: America/Los_Angeles
 
+# Used for sunrise/sunset scheduling triggers. Update to your actual
+# coordinates (https://www.latlong.net/). Defaults to SF Bay Area.
+location:
+  latitude: 37.7749
+  longitude: -122.4194
+
 rooms:
   # ---- Rooms with Sonos + Control4 lights ----
 

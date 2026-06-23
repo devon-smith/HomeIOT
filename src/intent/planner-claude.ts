@@ -233,6 +233,19 @@ export class ClaudePlanner implements Planner {
       }
     }
 
+    lines.push("", "## Scheduling");
+    lines.push(
+      "Use schedule_action with one of: `in_minutes`/`in_hours` (sleep timer / 'in 30 min'), `when` (absolute ISO), or `at_solar`='sunrise'|'sunset' with optional `solar_offset_minutes` (-30 = 30 min before). Add `recurrence`='daily'|'weekdays'|'weekends'|'weekly' for repeating jobs.",
+    );
+    lines.push(
+      "Use snooze_schedule to push back / pull forward a pending job. Pass `id` if known, else `label_match` (substring like 'hot tub').",
+    );
+    if (this.deps.house.location) {
+      lines.push(`- house location: ${this.deps.house.location.latitude.toFixed(3)}, ${this.deps.house.location.longitude.toFixed(3)} (sunrise/sunset triggers available)`);
+    } else {
+      lines.push("- house.location is NOT set — `at_solar` will fail; tell the user to add latitude/longitude to house.yaml.");
+    }
+
     const prefs = this.deps.house.preferences;
     if (prefs) {
       const volByRoom = prefs.music?.default_volume_by_room ?? {};

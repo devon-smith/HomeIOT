@@ -252,6 +252,12 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     .event-row .kind { color: var(--accent); flex-shrink: 0; }
     .event-row .payload { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
     .empty { color: var(--muted); font-style: italic; font-size: 12px; padding: 4px 0; }
+    .badge {
+      display: inline-block; padding: 1px 6px; margin-left: 6px;
+      background: var(--accent-soft); color: var(--accent);
+      border-radius: 4px; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600; vertical-align: middle;
+    }
 
     /* Bottom nav (mobile only) */
     .bottom-nav {
@@ -518,6 +524,13 @@ async function sendMessage() {
 }
 window.quickSend = (text) => send(text);
 window.cancelJob = async (id) => { await fetch('/schedule/' + id + '/cancel', { method: 'POST' }); renderSchedule(); };
+window.snoozeJob = async (id, byMinutes) => {
+  const r = await fetch('/schedule/' + id + '/snooze', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ by_minutes: byMinutes }),
+  });
+  if (r.ok) { toast('snoozed ' + byMinutes + ' min'); renderSchedule(); }
+};
 
 // ----- voice input (Web Speech API) -----
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -810,8 +823,12 @@ async function renderSchedule() {
       const label = j.label || j.actions.map(a => a.tool).join(' + ');
       const when = new Date(j.fireAt);
       const local = when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      return '<div class="job"><div class="job-label">' + esc(label) +
+      const badge = j.recurrence
+        ? ' <span class="badge">' + esc(j.recurrence) + '</span>'
+        : (j.trigger ? ' <span class="badge">' + esc(j.trigger.kind) + (j.trigger.offsetMinutes ? (j.trigger.offsetMinutes > 0 ? '+' : '') + j.trigger.offsetMinutes + 'm' : '') + '</span>' : '');
+      return '<div class="job"><div class="job-label">' + esc(label) + badge +
         '<div class="job-fire-at">' + esc(local) + '</div></div>' +
+        '<button class="btn-icon" title="snooze 15 min" onclick="snoozeJob(' + jstr(j.id) + ', 15)">+15</button>' +
         '<button class="btn-icon" onclick="cancelJob(' + jstr(j.id) + ')">×</button></div>';
     }).join('') : '<div class="empty">no pending jobs</div>';
     $('schedule').innerHTML = html;

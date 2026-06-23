@@ -6,7 +6,7 @@ import { World } from "./core/world.js";
 import { connectDb, disconnectDb, prisma } from "./core/db.js";
 import { loadHouse } from "./core/house.js";
 import { loadScenes } from "./core/scenes.js";
-import { MemoryScheduler, type Scheduler } from "./core/scheduler.js";
+import { BullMQScheduler, MemoryScheduler, type Scheduler } from "./core/scheduler.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
 import { DASHBOARD_HTML } from "./web/dashboard.js";
@@ -52,9 +52,10 @@ async function main() {
   const registry = new ToolRegistry();
   registerTools(registry);
 
-  // In-memory scheduler. Swap for BullMQScheduler on the Mac mini for
-  // reboot-durable scheduling (see src/core/scheduler.ts).
-  const scheduler: Scheduler = new MemoryScheduler(async (job) => {
+  // Scheduler: BullMQ if Redis + REDIS_URL is set (durable across reboots),
+  // otherwise in-memory (process-lifetime only). Reads location from
+  // house.yaml for sunrise/sunset triggers.
+  const execJob = async (job: { id: string; label?: string; actions: { tool: string; args: Record<string, unknown> }[]; actor: string }) => {
     const ctx = { bus, world, house, scenes, scheduler, registry, actor: job.actor };
     log.info({ jobId: job.id, label: job.label, actions: job.actions.length }, "scheduled job firing");
     for (const action of job.actions) {
@@ -68,7 +69,11 @@ async function main() {
         message: result.message,
       });
     }
-  });
+  };
+  const scheduler: Scheduler = config.REDIS_URL
+    ? new BullMQScheduler(execJob, config.REDIS_URL, house.location)
+    : new MemoryScheduler(execJob, house.location);
+  log.info({ kind: config.REDIS_URL ? "bullmq" : "memory" }, "scheduler ready");
   await scheduler.loadPending();
 
   let planner: Planner | null = null;
@@ -195,6 +200,8 @@ self.addEventListener('fetch', e => {
           fireAt: j.fireAt.toISOString(),
           actor: j.actor,
           actions: j.actions,
+          recurrence: j.recurrence ?? null,
+          trigger: j.trigger ?? null,
         })),
     };
   });
@@ -204,6 +211,23 @@ self.addEventListener('fetch', e => {
     await scheduler.cancel(id);
     pushEvent("schedule_cancelled", { job_id: id, by: "web" });
     reply.code(204).send();
+  });
+
+  app.post("/schedule/:id/snooze", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = (req.body as { by_minutes?: number } | undefined) ?? {};
+    const by = body.by_minutes;
+    if (typeof by !== "number" || by === 0) {
+      reply.code(400);
+      return { ok: false, message: "body.by_minutes (non-zero number) required" };
+    }
+    const updated = await scheduler.snooze(id, by);
+    if (!updated) {
+      reply.code(404);
+      return { ok: false, message: "job not found or not pending" };
+    }
+    pushEvent("schedule_snoozed", { job_id: id, by_minutes: by, new_fire_at: updated.fireAt.toISOString() });
+    return { ok: true, fireAt: updated.fireAt.toISOString() };
   });
 
   app.post("/message", async (req, reply) => {

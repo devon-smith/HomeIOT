@@ -50,6 +50,12 @@ const PreferencesSchema = z.object({
 
 const HouseSchema = z.object({
   timezone: z.string().default("America/Los_Angeles"),
+  location: z
+    .object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    })
+    .optional(),
   rooms: z.record(RoomSchema),
   zones: z.record(z.array(z.string())).default({}),
   actors: z.record(ActorSchema).default({}),

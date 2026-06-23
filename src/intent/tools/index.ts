@@ -10,6 +10,7 @@ import { queryState } from "./query_state.js";
 import { runScene } from "./run_scene.js";
 import { runC4Scene } from "./run_c4_scene.js";
 import { scheduleAction } from "./schedule_action.js";
+import { snoozeSchedule } from "./snooze_schedule.js";
 
 /** Register the M1+M2+M3+M4 tool set on the given registry. */
 export function registerTools(registry: ToolRegistry): void {
@@ -24,6 +25,7 @@ export function registerTools(registry: ToolRegistry): void {
   registry.register(runScene);
   registry.register(runC4Scene);
   registry.register(scheduleAction);
+  registry.register(snoozeSchedule);
 }
 
 /** Back-compat alias. */
