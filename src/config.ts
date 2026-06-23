@@ -16,6 +16,12 @@ const schema = z.object({
   ANTHROPIC_MODEL_DEFAULT: z.string().default("claude-sonnet-4-6"),
   ANTHROPIC_MODEL_HEAVY: z.string().default("claude-opus-4-7"),
 
+  // Voice surfaces (Alexa, Siri shortcut, future) sign requests with this
+  // shared secret. Required for POST /interpret; leave unset to disable.
+  HB_HMAC_SECRET: z.string().optional(),
+  HB_HMAC_MAX_SKEW_MS: z.coerce.number().int().positive().default(5 * 60 * 1000),
+  HB_VOICE_DEADLINE_MS: z.coerce.number().int().positive().default(6500),
+
   DISCOVERY_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 });
 

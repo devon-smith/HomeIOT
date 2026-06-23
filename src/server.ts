@@ -7,6 +7,9 @@ import { connectDb, disconnectDb, prisma } from "./core/db.js";
 import { loadHouse } from "./core/house.js";
 import { loadScenes } from "./core/scenes.js";
 import { BullMQScheduler, MemoryScheduler, type Scheduler } from "./core/scheduler.js";
+import { sharedRedis, closeSharedRedis } from "./core/redis.js";
+import { verifyHmac } from "./auth/hmac.js";
+import { authorizeForSource, type Source } from "./auth/source-authz.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
 import { DASHBOARD_HTML } from "./web/dashboard.js";
@@ -249,6 +252,96 @@ self.addEventListener('fetch', e => {
     };
   });
 
+  // POST /interpret — voice-surface entrypoint (Alexa, Siri, future).
+  // HMAC-signed, deduped via Redis on requestId, races the planner against
+  // a deadline so the caller gets a spoken response within the voice SLA.
+  // Returns {spoken, status, keepSessionOpen, reprompt} per the contract.
+  const SLOW = Symbol("slow");
+  const VOICE_DEDUPE_TTL_MS = 60_000;
+  const HARD_TIMEOUT_MS = 30_000; // upper bound even for the async branch
+
+  app.post("/interpret", { preHandler: verifyHmac }, async (req, reply) => {
+    const body = req.body as {
+      text?: string;
+      source?: string;
+      requestId?: string;
+      sessionId?: string;
+      userId?: string;
+      deadlineMs?: number;
+    } | undefined;
+
+    if (!body?.text || !body.requestId) {
+      reply.code(400);
+      return { spoken: "Sorry, that came through garbled.", status: "error" };
+    }
+
+    const source = (body.source ?? "alexa") as Source;
+    const deadlineMs = Math.min(
+      Math.max(500, body.deadlineMs ?? config.HB_VOICE_DEADLINE_MS),
+      HARD_TIMEOUT_MS,
+    );
+
+    // (a) Idempotency — Alexa retries with the same requestId; never double-execute.
+    const dedupeKey = `voice:req:${body.requestId}`;
+    const fresh = await sharedRedis().set(dedupeKey, "1", "PX", VOICE_DEDUPE_TTL_MS, "NX");
+    if (fresh !== "OK") {
+      log.info({ requestId: body.requestId, source }, "voice request deduplicated");
+      return { spoken: "Already on it.", status: "duplicate" };
+    }
+
+    // (b) Source-scoped pre-check. Cheap heuristic before the planner runs.
+    const guard = authorizeForSource(body.text, source);
+    if (guard.decision === "block") {
+      pushEvent("voice_blocked", { source, requestId: body.requestId, text: body.text, reason: guard.message });
+      return { spoken: guard.message ?? "That isn't allowed by voice.", status: "error" };
+    }
+
+    log.info({ text: body.text, source, requestId: body.requestId }, "voice request");
+
+    // (c) Run the planner; race it against the voice deadline.
+    const exec = router.handle(body.text, `voice:${source}`);
+    const timer = new Promise<typeof SLOW>((resolve) => setTimeout(() => resolve(SLOW), deadlineMs));
+
+    const winner = await Promise.race([exec, timer]);
+
+    if (winner === SLOW) {
+      // Let the planner keep running (floating promise). On reboot mid-plan
+      // we lose it — a known v0 gap; promoting to BullMQ continuation is the
+      // P5/P6-era follow-up.
+      exec.then(
+        (r) => log.info({ requestId: body.requestId, latencyMs: r.latencyMs }, "voice async finished"),
+        (err) => log.warn({ requestId: body.requestId, err: err?.message }, "voice async failed"),
+      );
+      const ack = ackForText(body.text);
+      pushEvent("voice_async", { source, requestId: body.requestId, text: body.text });
+      return { spoken: ack, status: "async" };
+    }
+
+    const result = winner;
+    const ok = result.results.every((r) => r.ok) || result.results.length === 0;
+    const spoken = ttsFriendly(result.response);
+    pushEvent("voice_done", {
+      source, requestId: body.requestId, text: body.text,
+      route: result.route, latencyMs: result.latencyMs, ok,
+    });
+    return { spoken, status: ok ? "done" : "error", keepSessionOpen: false, reprompt: null };
+  });
+
+  function ackForText(text: string): string {
+    const t = text.toLowerCase();
+    if (t.includes("movie night")) return "Setting up movie night.";
+    if (t.includes("goodnight") || t.includes("good night")) return "Saying goodnight.";
+    if (t.includes("good morning")) return "Starting the morning.";
+    if (t.includes("warm") && t.includes("hot tub")) return "Warming the hot tub.";
+    return "On it.";
+  }
+  function ttsFriendly(s: string): string {
+    // Trim debug noise (slugs already excluded), cap length for TTS.
+    let out = (s || "").trim();
+    if (out.length > 240) out = out.slice(0, 237).trim() + "...";
+    return out || "Done.";
+  }
+
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
   log.info({ port: config.PORT }, "http listening");
 
@@ -258,6 +351,7 @@ self.addEventListener('fetch', e => {
     await scheduler.close().catch(() => {});
     await bus.disconnect().catch(() => {});
     await world.disconnect().catch(() => {});
+    await closeSharedRedis().catch(() => {});
     await disconnectDb().catch(() => {});
     process.exit(0);
   };
