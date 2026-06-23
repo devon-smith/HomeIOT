@@ -232,6 +232,33 @@ export class ClaudePlanner implements Planner {
         lines.push(`- ${av.room}.${av.device} — sources: ${av.sources.sort().join(", ")}`);
       }
     }
+
+    const prefs = this.deps.house.preferences;
+    if (prefs) {
+      const volByRoom = prefs.music?.default_volume_by_room ?? {};
+      const favs = prefs.music?.favorite_playlists ?? [];
+      const moods = prefs.music?.mood_playlists ?? {};
+      if (Object.keys(volByRoom).length || favs.length || Object.keys(moods).length) {
+        lines.push("", "## Preferences");
+        lines.push(
+          "When the user asks to play music with no specific query (e.g. 'play music in the kitchen'), pick from favorite_playlists and use the room's default_volume. For mood asks ('something chill', 'focus music', 'dinner vibes'), match a mood_playlist key.",
+        );
+        if (Object.keys(volByRoom).length) {
+          const pairs = Object.entries(volByRoom).map(([r, v]) => `${r}=${v}`).join(", ");
+          lines.push(`- default music volume by room: ${pairs}`);
+        }
+        if (favs.length) {
+          lines.push(`- favorite playlists (good defaults): ${favs.join(" | ")}`);
+        }
+        for (const [mood, query] of Object.entries(moods)) {
+          lines.push(`- mood "${mood}" → "${query}"`);
+        }
+      }
+      const lb = prefs.lights?.default_brightness;
+      if (lb !== undefined && lb !== 80) {
+        lines.push(`- default light brightness when "turn on" with no level: ${lb}%`);
+      }
+    }
     const sceneEntries = Object.entries(this.deps.scenes).sort(([a], [b]) => a.localeCompare(b));
     if (sceneEntries.length) {
       lines.push("", "## Brain-owned scenes (invoke with run_scene)");

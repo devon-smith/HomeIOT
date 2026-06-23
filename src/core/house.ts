@@ -24,12 +24,37 @@ const HvacZoneSchema = z.object({
   rooms: z.array(z.string()).default([]),
 });
 
+const PreferencesSchema = z.object({
+  music: z
+    .object({
+      default_volume_by_room: z.record(z.number().int().min(0).max(100)).default({}),
+      favorite_playlists: z.array(z.string()).default([]),
+      mood_playlists: z.record(z.string()).default({}),
+    })
+    .default({}),
+  lights: z
+    .object({
+      default_brightness: z.number().int().min(0).max(100).default(80),
+    })
+    .default({}),
+  quick_actions: z
+    .array(
+      z.object({
+        label: z.string(),
+        message: z.string(),
+        icon: z.string().optional(),
+      }),
+    )
+    .default([]),
+});
+
 const HouseSchema = z.object({
   timezone: z.string().default("America/Los_Angeles"),
   rooms: z.record(RoomSchema),
   zones: z.record(z.array(z.string())).default({}),
   actors: z.record(ActorSchema).default({}),
   hvac_zones: z.record(HvacZoneSchema).optional(),
+  preferences: PreferencesSchema.optional(),
   // c4: passthrough so we don't reject scene-id config; not used by brain directly.
   c4: z.record(z.unknown()).optional(),
 });

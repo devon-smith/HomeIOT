@@ -367,3 +367,52 @@ actors:
   partner:
     role: partner
     imessage_handles: []
+
+# User-facing preferences. The LLM reads these and applies them when the
+# user's request is under-specified ("play music in the kitchen" without
+# a playlist, "turn on the lights" without a brightness, etc.).
+preferences:
+  music:
+    # Per-room default volumes. Bedrooms and bathrooms get quieter
+    # defaults; main living areas + outdoor spaces louder.
+    default_volume_by_room:
+      kitchen: 30
+      living_room: 25
+      family_room: 25
+      dining_room: 25
+      master_bedroom: 15
+      backyard: 35
+      terrace: 35
+      pool_house: 30
+      oasis_palms: 35
+      waterfall: 35
+      workout: 50
+    # Curated good defaults — the LLM picks one of these when the user
+    # asks for music without specifying. Match what's actually saved in
+    # the Sonos app under "My Sonos" or as a Sonos Favorite.
+    favorite_playlists:
+      - smooth jazz
+      - coffee table jazz
+      - peaceful piano
+      - lo-fi beats
+      - chill vibes
+      - acoustic calm
+    # Mood -> playlist query. "Play something chill" -> uses "chill" mood.
+    mood_playlists:
+      chill: smooth jazz
+      focus: peaceful piano
+      background: coffee table jazz
+      energy: lo-fi beats
+      dinner: cocktail jazz
+      morning: acoustic calm
+  lights:
+    default_brightness: 80
+  # Buttons shown in the dashboard's "Quick actions" row. Each fires the
+  # message through the normal LLM route (fast-path may catch it).
+  quick_actions:
+    - { icon: "🌅", label: "Good Morning", message: "good morning" }
+    - { icon: "🎬", label: "Movie Night",  message: "movie night in the theater" }
+    - { icon: "💤", label: "Goodnight",    message: "goodnight" }
+    - { icon: "🎶", label: "Chill Music",  message: "play something chill in the family room" }
+    - { icon: "💡", label: "All Lights Off", message: "turn off all the lights" }
+    - { icon: "🔇", label: "Pause Music",  message: "pause all music" }
