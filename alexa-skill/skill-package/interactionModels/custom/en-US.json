@@ -14,8 +14,7 @@
           "samples": [
             "to {command}",
             "for {command}",
-            "that {command}",
-            "{command}"
+            "that {command}"
           ]
         }
       ],
