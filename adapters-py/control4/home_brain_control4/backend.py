@@ -30,7 +30,9 @@ class SceneFiring:
 @dataclass
 class RoomConfig:
     room: str
-    proxy_id: int  # Composer proxy id for the room's lights
+    c4_room_id: int = 0  # Director room id (type 8) — used for scoping/diagnostics
+    light_ids: list[int] = field(default_factory=list)  # type-7 load IDs in this room
+    proxy_id: int = 0  # legacy; kept so old configs still parse
 
 
 class Backend(Protocol):

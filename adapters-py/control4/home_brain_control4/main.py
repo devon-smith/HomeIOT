@@ -56,18 +56,37 @@ def find_house_yaml() -> Path:
     return primary if primary.exists() else example
 
 
-def load_rooms() -> list[RoomConfig]:
+def _load_house() -> dict[str, Any]:
     path = find_house_yaml()
     log.info("loading house from %s", path)
-    data = yaml.safe_load(path.read_text())
+    return yaml.safe_load(path.read_text()) or {}
+
+
+def load_rooms() -> list[RoomConfig]:
+    data = _load_house()
     rooms: list[RoomConfig] = []
     for slug, room in (data.get("rooms") or {}).items():
         lights = (room.get("devices") or {}).get("lights")
         if not lights or lights.get("adapter") != "control4":
             continue
-        proxy_id = int((lights.get("config") or {}).get("c4_proxy_id", 0))
-        rooms.append(RoomConfig(room=slug, proxy_id=proxy_id))
+        cfg = lights.get("config") or {}
+        light_ids = [int(x) for x in (cfg.get("c4_light_ids") or [])]
+        rooms.append(
+            RoomConfig(
+                room=slug,
+                c4_room_id=int(cfg.get("c4_room_id", 0)),
+                light_ids=light_ids,
+                proxy_id=int(cfg.get("c4_proxy_id", 0)),
+            )
+        )
     return rooms
+
+
+def load_scene_ids() -> dict[str, int]:
+    """Pull `c4.scenes:` mapping out of house.yaml (scene_name -> c4 item id)."""
+    data = _load_house()
+    scenes = ((data.get("c4") or {}).get("scenes") or {})
+    return {str(k): int(v) for k, v in scenes.items()}
 
 
 class Adapter:
@@ -264,7 +283,24 @@ async def amain() -> int:
         return 1
     log.info("managing %d rooms: %s", len(rooms), [r.room for r in rooms])
 
-    backend: Backend = MockBackend() if mode == "mock" else PyControl4Backend()
+    backend: Backend
+    if mode == "mock":
+        backend = MockBackend()
+    else:
+        host = os.environ.get("CONTROL4_HOST")
+        email = os.environ.get("CONTROL4_EMAIL")
+        password = os.environ.get("CONTROL4_PASSWORD")
+        missing = [k for k, v in {
+            "CONTROL4_HOST": host,
+            "CONTROL4_EMAIL": email,
+            "CONTROL4_PASSWORD": password,
+        }.items() if not v]
+        if missing:
+            log.error("CONTROL4_MODE=real but missing in env: %s", ", ".join(missing))
+            return 1
+        scene_ids = load_scene_ids()
+        log.info("real backend: host=%s scenes=%d", host, len(scene_ids))
+        backend = PyControl4Backend(host, email, password, scene_ids=scene_ids)
     await backend.init(rooms)
 
     adapter = Adapter(backend, rooms, mqtt_url)
