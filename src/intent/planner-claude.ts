@@ -206,6 +206,32 @@ export class ClaudePlanner implements Planner {
         );
       }
     }
+
+    // List AV rooms with their available sources so the LLM can pick the right name.
+    const avRooms: Array<{ room: string; device: string; sources: string[] }> = [];
+    for (const [slug, def] of Object.entries(this.deps.house.rooms)) {
+      for (const [dslug, ddef] of Object.entries(def.devices)) {
+        if (ddef.adapter !== "control4") continue;
+        const cfg = (ddef.config ?? {}) as Record<string, unknown>;
+        const sources = cfg["sources"];
+        if (sources && typeof sources === "object") {
+          avRooms.push({
+            room: slug,
+            device: dslug,
+            sources: Object.keys(sources as Record<string, unknown>),
+          });
+        }
+      }
+    }
+    if (avRooms.length > 0) {
+      lines.push("", "## AV (Control4) — use control_av({room, action, source?, level?})");
+      lines.push(
+        "Fire `control_av({room, action:'watch', source})` for 'watch X in Y' / 'play X on the Y TV'; C4 powers on the TV/projector+AVR+source automatically. Use action='off' for ROOM_OFF, 'volume' with level, 'mute'/'unmute'.",
+      );
+      for (const av of avRooms) {
+        lines.push(`- ${av.room}.${av.device} — sources: ${av.sources.sort().join(", ")}`);
+      }
+    }
     const sceneEntries = Object.entries(this.deps.scenes).sort(([a], [b]) => a.localeCompare(b));
     if (sceneEntries.length) {
       lines.push("", "## Brain-owned scenes (invoke with run_scene)");

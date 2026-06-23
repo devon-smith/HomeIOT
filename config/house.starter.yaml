@@ -84,6 +84,13 @@ rooms:
         config:
           brand: sony
           ip: 192.168.1.94
+      av:
+        adapter: control4
+        config:
+          c4_av_room_id: 80  # Master room
+          sources:
+            apple_tv: 4291        # Apple TV - Master
+            xfinity: 4785        # Comcast Xfinity (Master)
 
   backyard:
     label: Backyard
@@ -169,6 +176,18 @@ rooms:
           c4_light_ids: [2281, 2711, 3179, 3289, 3796, 4757, 4787]
           # Foot Lights, Theater Sconce Keypad, Theater Stars,
           # Rope Light, Theater Cans, Equipment Room, Scaler Socket Switch
+      av:
+        adapter: control4
+        config:
+          c4_av_room_id: 5  # Director room id for source-select dispatch
+          sources:
+            apple_tv: 4281        # Apple TV - Theater
+            xfinity: 4144        # Xfinity - Theater
+            uhd: 3818            # UHD Player
+            xbox: 1508           # XBOX (first)
+            xbox_2: 1509         # XBOX (second)
+            tuner: 4307          # Tuner 2
+            bluetooth: 4308      # Bluetooth 3
 
   foyer:
     label: Foyer
