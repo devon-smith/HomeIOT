@@ -73,6 +73,7 @@ async def main() -> int:
 
     try:
         import aiohttp
+        import ssl
         from pyControl4.account import C4Account
         from pyControl4.director import C4Director
     except ImportError as err:
@@ -119,11 +120,19 @@ async def main() -> int:
         director_bearer = await account.get_director_bearer_token(common_name)
         token = director_bearer.get("token") if isinstance(director_bearer, dict) else director_bearer
 
-        director = C4Director(host, token, session)
-
-        print(f"# fetching item tree from director at {host} ...", file=sys.stderr)
-        items_raw = await director.get_all_item_info()
-        items = json.loads(items_raw) if isinstance(items_raw, str) else items_raw
+        # The Director uses a self-signed cert (subject = controller name).
+        # That's standard for C4 — every Director on every site is self-signed.
+        # Cloud auth above uses normal verification; only the local Director
+        # call gets a no-verify session.
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl.CERT_NONE
+        director_conn = aiohttp.TCPConnector(ssl=ssl_ctx)
+        async with aiohttp.ClientSession(connector=director_conn) as director_session:
+            director = C4Director(host, token, director_session)
+            print(f"# fetching item tree from director at {host} ...", file=sys.stderr)
+            items_raw = await director.get_all_item_info()
+            items = json.loads(items_raw) if isinstance(items_raw, str) else items_raw
 
         # Stderr summary so the user can eyeball before sending JSON.
         if isinstance(items, list):
