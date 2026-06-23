@@ -7,11 +7,18 @@
  *   against a 6.5s deadline and returns either a spoken result, an
  *   async ack, or an error. We speak whatever we get back.
  *
- * Env vars (set in Alexa-hosted Lambda settings — Skill > Code > Settings):
+ * Config (in order of precedence):
+ *   1. ./config.js          (Alexa-hosted skills — no env-var UI exists)
+ *   2. process.env.*        (self-hosted Lambda with env vars)
+ *
+ * Required keys:
  *   HOME_BRAIN_URL              https://home.natashabrain.com/interpret
  *   HB_HMAC_SECRET              same 32-byte hex as the brain's .env
  *   CF_ACCESS_CLIENT_ID         (optional) Cloudflare Access service token id
  *   CF_ACCESS_CLIENT_SECRET     (optional) Cloudflare Access service token secret
+ *
+ * For Alexa-hosted skills, create a `config.js` file next to this one
+ * (NOT committed to git) — see config.example.js for the template.
  *
  * One-intent design: RunCommandIntent has a single AMAZON.SearchQuery
  * slot named {command}. The user's whole utterance lands there, and the
@@ -22,10 +29,13 @@
 const Alexa = require('ask-sdk-core');
 const crypto = require('crypto');
 
-const BRAIN_URL = process.env.HOME_BRAIN_URL;
-const SECRET = process.env.HB_HMAC_SECRET;
-const CF_ID = process.env.CF_ACCESS_CLIENT_ID;
-const CF_SECRET = process.env.CF_ACCESS_CLIENT_SECRET;
+let fileConfig = {};
+try { fileConfig = require('./config'); } catch (_) { /* fall through to env */ }
+
+const BRAIN_URL = fileConfig.HOME_BRAIN_URL || process.env.HOME_BRAIN_URL;
+const SECRET = fileConfig.HB_HMAC_SECRET || process.env.HB_HMAC_SECRET;
+const CF_ID = fileConfig.CF_ACCESS_CLIENT_ID || process.env.CF_ACCESS_CLIENT_ID;
+const CF_SECRET = fileConfig.CF_ACCESS_CLIENT_SECRET || process.env.CF_ACCESS_CLIENT_SECRET;
 
 const CLIENT_TIMEOUT_MS = 7000;          // < Alexa's 8s skill ceiling
 const BRAIN_DEADLINE_MS = 6500;          // Brain's race timer

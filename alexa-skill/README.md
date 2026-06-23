@@ -46,16 +46,19 @@ alexa-skill/
    - **Code** tab — replace `lambda/index.js` with the contents of
      `alexa-skill/lambda/index.js` from this repo. Replace `package.json`
      with `alexa-skill/lambda/package.json`. Click **Save** then **Deploy**.
-6. **Code → Environment variables** — add:
-   ```
-   HOME_BRAIN_URL              https://home.natashabrain.com/interpret
-   HB_HMAC_SECRET              <same 32-byte hex as the brain>
-   CF_ACCESS_CLIENT_ID         <optional, if you enable Cloudflare Access>
-   CF_ACCESS_CLIENT_SECRET     <optional>
-   ```
-   Save and re-deploy.
+6. **Configure secrets** — Alexa-hosted skills have **no Environment
+   Variables UI**, so we use a small config file the Lambda code reads
+   directly. In the Alexa Code editor (NOT in this repo):
+   - Click **+ New File** in the file tree → name it `config.js`
+   - Paste the template from `alexa-skill/lambda/config.example.js`,
+     fill in your real `HB_HMAC_SECRET` (the 32-byte hex from the brain's
+     `.env`), Save, Deploy.
+   - `config.js` is `.gitignored` here — never commit the real secret.
+   - If you later switch to a self-hosted Lambda (which DOES have env
+     vars), delete `config.js` and set the same keys as env vars instead —
+     `index.js` reads from either source.
 7. **Test** tab — set the tester to **Development**. Type or speak
-   *"ask home brain to turn off the kitchen lights"* — you should hear
+   *"ask natasha brain to turn off the kitchen lights"* — you should hear
    "On it." followed by the brain's spoken response.
 
 ## Test it on a real Echo

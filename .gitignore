@@ -21,6 +21,9 @@ prisma/migrations/dev.db*
 config/house.yaml
 config/scenes.yaml
 
+# Alexa skill secrets (template lives in tree as config.example.js)
+alexa-skill/lambda/config.js
+
 # Logs
 logs/
 *.log
