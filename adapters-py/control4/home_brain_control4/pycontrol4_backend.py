@@ -284,15 +284,15 @@ class PyControl4Backend(Backend):
 
         if target_f is not None:
             t = float(target_f)
-            # In heat/cool modes set the matching setpoint; in auto/off,
-            # set heat = t-2 and cool = t+2 to bracket the target.
+            # Standard C4 Ecobee/HVAC commands; param is FAHRENHEIT.
+            # In auto/off we bracket the target with the driver's deadband.
             if effective_mode == "heat":
-                await self._send_setpoint(item_id, "SET_HEAT_SETPOINT", t)
+                await self._send_setpoint(item_id, "SET_SETPOINT_HEAT", t)
             elif effective_mode == "cool":
-                await self._send_setpoint(item_id, "SET_COOL_SETPOINT", t)
+                await self._send_setpoint(item_id, "SET_SETPOINT_COOL", t)
             else:
-                await self._send_setpoint(item_id, "SET_HEAT_SETPOINT", t - 2)
-                await self._send_setpoint(item_id, "SET_COOL_SETPOINT", t + 2)
+                await self._send_setpoint(item_id, "SET_SETPOINT_HEAT", t - 2)
+                await self._send_setpoint(item_id, "SET_SETPOINT_COOL", t + 2)
 
         # Refresh from Director so the echo reflects reality.
         new_state = await self._fetch_climate_state(device)
@@ -304,7 +304,7 @@ class PyControl4Backend(Backend):
         await self._director.send_post_request(
             f"/api/v1/items/{item_id}/commands",
             command,
-            {"VALUE": int(round(value))},
+            {"FAHRENHEIT": int(round(value))},
         )
 
     async def _fetch_climate_state(self, device: str) -> ClimateState:
@@ -321,12 +321,13 @@ class PyControl4Backend(Backend):
                 log.debug("thermostat %s read %s failed: %s", item_id, var, err)
                 return None
 
-        # Try common C4 variable names; not every driver exposes the same set.
+        # Standard C4 Ecobee variable names. ANA_* are the canonical
+        # in-driver values; TEMPERATURE_F etc. are the user-facing ones.
         temp_raw = await _read("TEMPERATURE_F") or await _read("CURRENT_TEMPERATURE")
         heat_sp = await _read("HEAT_SETPOINT_F") or await _read("HEATING_SETPOINT")
         cool_sp = await _read("COOL_SETPOINT_F") or await _read("COOLING_SETPOINT")
-        mode_raw = await _read("HVAC_MODE")
-        state_raw = await _read("HVAC_STATE")
+        mode_raw = await _read("ANA_HVACMODE") or await _read("HVAC_MODE")
+        state_raw = await _read("ANA_HVACSTATE") or await _read("HVAC_STATE")
 
         def _f(v: str | None) -> float | None:
             if v is None:
@@ -360,10 +361,17 @@ class PyControl4Backend(Backend):
         assert self._director is not None
         target = max(0, min(100, int(position)))
 
-        # Velux IR and most C4 motorized covers respond to SET_LEVEL the same
-        # way dimmers do: 0 = closed/down, 100 = open/up.
+        # C4 motorized covers (Velux + Lutron Sivoia) are binary in this
+        # system: SET_LEVEL_TARGET:LEVEL_TARGET_OPEN or LEVEL_TARGET_CLOSED.
+        # We snap target to 0 (close) or 100 (open) — no intermediate stops.
+        snapped = 100 if target > 0 else 0
+        cmd = (
+            "SET_LEVEL_TARGET:LEVEL_TARGET_OPEN"
+            if snapped == 100
+            else "SET_LEVEL_TARGET:LEVEL_TARGET_CLOSED"
+        )
         results = await asyncio.gather(
-            *(self._set_level(i, target) for i in ids),
+            *(self._send_cover_cmd(i, cmd) for i in ids),
             return_exceptions=True,
         )
         errors = [r for r in results if isinstance(r, Exception)]
@@ -375,9 +383,17 @@ class PyControl4Backend(Backend):
                 room, device, len(errors), len(results),
             )
 
-        state = SkylightState(position=target, online=True)
+        state = SkylightState(position=snapped, online=True)
         self._skylight_cache[(room, device)] = state
         return state
+
+    async def _send_cover_cmd(self, item_id: int, cmd: str) -> None:
+        assert self._director is not None
+        await self._director.send_post_request(
+            f"/api/v1/items/{item_id}/commands",
+            cmd,
+            {},
+        )
 
     # ------------------------------------------------------------------
 
