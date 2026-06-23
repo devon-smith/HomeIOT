@@ -47,7 +47,42 @@ The manual steps below are the fallback / reference if you'd rather do it by han
 
 ---
 
-## Manual setup
+## Dashboard-managed flow (what we actually used)
+
+If you create the tunnel in the **Cloudflare Zero Trust dashboard** (Networks
+→ Tunnels → Create) and configure routing there, the daemon is "remotely
+managed" and you do **NOT** create a local `config.yml` — the dashboard owns
+the ingress rules and the install token carries everything. This is the
+quickest path and survives `cloudflared` reinstalls cleanly.
+
+Steps on the dashboard side:
+
+1. **Networks → Tunnels → Create a tunnel** → name `home-brain` (cloudflared type).
+2. After creation, you get a one-line install command containing a long token —
+   that's what `service install` needs.
+3. **Public Hostname** → Add: hostname `home.natashabrain.com`, path
+   `/interpret`, service `http://localhost:3000`. The catch-all `404`
+   at the bottom is automatic.
+
+Then on the mini:
+
+```bash
+brew install cloudflared
+sudo cloudflared service install <THE-TOKEN-FROM-THE-DASHBOARD>
+sudo launchctl list | grep cloudflared    # PID = running
+```
+
+That's it — the tunnel goes **Active** in the dashboard within a few
+seconds. There's no `~/.cloudflared/config.yml` to manage; edit routing in
+the dashboard instead.
+
+> ⚠️ Treat the install token like a password. If it leaks, rotate via
+> dashboard → Tunnels → `home-brain` → **Refresh token**, then re-run
+> `sudo cloudflared service install <new-token>`.
+
+---
+
+## Manual setup (CLI-managed flow)
 
 ### Step 1 — Register a domain at Cloudflare (~$10/yr) — ✓ done
 
