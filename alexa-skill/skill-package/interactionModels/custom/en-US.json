@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "home brain",
+      "invocationName": "natasha brain",
       "intents": [
         { "name": "AMAZON.StopIntent", "samples": [] },
         { "name": "AMAZON.CancelIntent", "samples": [] },
