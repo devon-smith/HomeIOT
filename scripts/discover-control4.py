@@ -83,26 +83,46 @@ async def main() -> int:
     async with aiohttp.ClientSession() as session:
         print(f"# auth as {email} ...", file=sys.stderr)
         account = C4Account(email, password, session)
-        await account.getAccountBearerToken()
+        await account.get_account_bearer_token()
 
-        controllers = await account.getAccountControllers()
+        raw_controllers = await account.get_account_controllers()
+        # pyControl4 sometimes returns a dict with one controller, sometimes a list.
+        if isinstance(raw_controllers, dict):
+            controllers = [raw_controllers]
+        else:
+            controllers = list(raw_controllers)
+
+        def cname(c: dict) -> str:
+            return c.get("controllerCommonName") or c.get("controller_common_name") or ""
+
         print(f"# {len(controllers)} controller(s) on this account:", file=sys.stderr)
         for c in controllers:
             print(
-                f"#   {c.get('controllerCommonName')} "
-                f"({c.get('href') or c.get('hardwareDescription')})",
+                f"#   {cname(c)} "
+                f"({c.get('href') or c.get('hardwareDescription') or c.get('hardware_description')})",
                 file=sys.stderr,
             )
 
-        controller = controllers[0]
-        common_name = controller.get("controllerCommonName")
-        print(f"# requesting director token for {common_name} ...", file=sys.stderr)
-        director_bearer = await account.getDirectorBearerToken(common_name)
+        # Prefer the Master Controller (the EA-5 / HC800 holds the Director DB).
+        # Fall back to the first controller if nothing identifies itself as master.
+        target = os.environ.get("CONTROL4_CONTROLLER")  # explicit override
+        if target:
+            controller = next((c for c in controllers if target.lower() in cname(c).lower()), None)
+            if not controller:
+                print(f"ERROR: CONTROL4_CONTROLLER='{target}' not found among controllers", file=sys.stderr)
+                return 1
+        else:
+            controller = next((c for c in controllers if "master" in cname(c).lower()), controllers[0])
 
-        director = C4Director(host, director_bearer["token"], session)
+        common_name = cname(controller)
+        print(f"# requesting director token for {common_name} ...", file=sys.stderr)
+        director_bearer = await account.get_director_bearer_token(common_name)
+        token = director_bearer.get("token") if isinstance(director_bearer, dict) else director_bearer
+
+        director = C4Director(host, token, session)
 
         print(f"# fetching item tree from director at {host} ...", file=sys.stderr)
-        items_raw = await director.getAllItemInfo()
+        items_raw = await director.get_all_item_info()
         items = json.loads(items_raw) if isinstance(items_raw, str) else items_raw
 
         # Stderr summary so the user can eyeball before sending JSON.
