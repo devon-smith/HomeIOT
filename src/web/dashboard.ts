@@ -1,22 +1,13 @@
 /**
- * Home Brain dashboard — single-file HTML+CSS+JS, no build step, no framework.
+ * Home Brain dashboard — single-file HTML+CSS+JS, no build step.
  *
- * Features:
- *   - PWA-installable (manifest at /manifest.webmanifest, sw at /sw.js)
- *   - Status hero line summarising the house at a glance
- *   - Voice input (Web Speech API on supporting browsers)
- *   - Light/Dark/System theme toggle (persisted in localStorage)
- *   - Per-room cards with inline buttons + sliders (lights/volume/temp)
- *   - Per-room detail sheet (tap card title) with full controls
- *   - Optimistic UI: tap shows the predicted state instantly, reconciles
- *     when /world refreshes
- *   - Toast notifications when scheduled jobs fire
- *   - Pull-to-refresh on mobile
- *   - Bottom nav on mobile (Rooms / Activity / Quick)
- *   - 44px+ touch targets, system font, careful color contrast
+ * Built from the build spec: status hero, big scene tiles, schedule chips
+ * promoted, unified climate, grouped rooms (Entertainment/Comfort/Lighting),
+ * hide-empty, plain-language activity feed, optimistic state, Undo toasts,
+ * mobile bottom nav + desktop sidebar/right rail, no slugs/IDs anywhere.
  *
- * All commands flow through POST /message so the fast-path / LLM stay in
- * the loop — the browser never publishes MQTT directly.
+ * All commands flow through POST /message. Sliders + room-off snapshots
+ * enable optimistic UI; the next /world refresh reconciles.
  */
 
 export const DASHBOARD_HTML = String.raw`<!doctype html>
@@ -27,452 +18,577 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Brain" />
-  <meta name="theme-color" content="#c8623a" />
+  <meta name="theme-color" content="#C26E4D" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   <link rel="apple-touch-icon" href="/icon.svg" />
   <title>Home Brain</title>
   <style>
+    /* ===== TOKENS ===== */
     :root {
-      --bg: #f4f1ea;
-      --fg: #2a2a2a;
-      --muted: #7a7470;
-      --card: #fff;
-      --card-2: #fbf8f1;
-      --accent: #c8623a;
-      --accent-soft: #f0d9ce;
-      --good: #4a8c5a;
-      --warn: #b88a2a;
-      --bad: #c54545;
-      --border: #e3ddd1;
-      --shadow: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-lg: 0 8px 32px rgba(0,0,0,0.18);
-      --warm-tint: #fff6e8;
-      --cool-tint: #e7f0f7;
-      --mono: ui-monospace, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+      /* Surfaces */
+      --bg: #1A1714;
+      --surface: #221F1A;
+      --surface-raised: #2A2620;
+      --surface-input: #1E1B17;
+      --border: #322E27;
+      --border-strong: #463F35;
+      /* Text */
+      --text: #F0EBE2;
+      --text-secondary: #A39A8C;
+      --text-muted: #6B6358;
+      /* Accent */
+      --accent: #C26E4D;
+      --accent-hover: #D07E5D;
+      --accent-press: #AE5E3F;
+      --accent-fg: #FFFFFF;
+      --accent-subtle: rgba(194,110,77,0.14);
+      /* Status */
+      --success: #6FAE5E;
+      --success-subtle: rgba(111,174,94,0.14);
+      --warn: #D9A441;
+      --danger: #C9533F;
+      /* Climate cool (use ONLY for cooling/setpoints) */
+      --cool: #5E84A8;
+      --cool-subtle: rgba(94,132,168,0.12);
+      /* Type */
+      --font-display: Georgia, 'Newsreader', 'Lora', serif;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+      --font-mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+      /* Spacing — 4px base */
+      --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+      --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+      /* Radii */
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-pill: 999px;
+      /* Elevation (flat — borders do the work) */
+      --shadow-sheet: 0 -8px 32px rgba(0,0,0,0.40);
+      --shadow-toast: 0 4px 24px rgba(0,0,0,0.35);
+      /* Motion */
+      --ease: cubic-bezier(0.2, 0, 0, 1);
+      --dur-fast: 120ms; --dur-base: 200ms; --dur-sheet: 280ms;
       --safe-bottom: env(safe-area-inset-bottom, 0);
+      --safe-top: env(safe-area-inset-top, 0);
     }
-    html.theme-dark {
-      --bg: #15140f;
-      --fg: #ece8df;
-      --muted: #8a847d;
-      --card: #221f1a;
-      --card-2: #1c1a16;
-      --border: #34302a;
-      --accent-soft: #4a2e22;
-      --shadow: 0 1px 3px rgba(0,0,0,0.4);
-      --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
-      --warm-tint: #2a1f10;
-      --cool-tint: #102028;
+    html[data-theme="light"] {
+      --bg: #F5F3EE;
+      --surface: #FFFFFF;
+      --surface-raised: #FBF8F1;
+      --surface-input: #FFFFFF;
+      --border: #E3DDD1;
+      --border-strong: #C9C0AE;
+      --text: #2A2620;
+      --text-secondary: #6B6358;
+      --text-muted: #9A9389;
+      --accent-subtle: rgba(194,110,77,0.10);
+      --success-subtle: rgba(111,174,94,0.10);
+      --cool-subtle: rgba(94,132,168,0.10);
+      --shadow-sheet: 0 -8px 32px rgba(0,0,0,0.15);
+      --shadow-toast: 0 4px 24px rgba(0,0,0,0.15);
     }
-    @media (prefers-color-scheme: dark) {
-      html.theme-system {
-        --bg: #15140f;
-        --fg: #ece8df;
-        --muted: #8a847d;
-        --card: #221f1a;
-        --card-2: #1c1a16;
-        --border: #34302a;
-        --accent-soft: #4a2e22;
-        --shadow: 0 1px 3px rgba(0,0,0,0.4);
-        --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
-        --warm-tint: #2a1f10;
-        --cool-tint: #102028;
-      }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; animation: none !important; }
     }
+
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { margin: 0; padding: 0; height: 100%; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
     body {
-      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-      background: var(--bg); color: var(--fg);
-      min-height: 100%;
+      font: 14px/1.4 var(--font-ui);
+      background: var(--bg); color: var(--text);
       padding-bottom: calc(72px + var(--safe-bottom));
       overscroll-behavior-y: contain;
     }
-    @media (min-width: 760px) {
-      body { padding-bottom: 24px; }
+    button { font: inherit; cursor: pointer; }
+    input { font: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm); }
+
+    /* ===== LAYOUT ===== */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      max-width: 1400px; margin: 0 auto;
     }
-    .container {
-      max-width: 1400px;
-      margin-inline: auto;
-      padding: 20px 20px 0;
+    .sidebar { display: none; }
+    .desktop-rail { display: none; }
+    .main { padding: var(--sp-5) var(--sp-4) 0; min-width: 0; }
+
+    @media (min-width: 960px) {
+      body { padding-bottom: var(--sp-6); }
+      .layout {
+        grid-template-columns: 200px 1fr 320px;
+        gap: var(--sp-5);
+        padding: 0 var(--sp-5);
+      }
+      .sidebar { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-6); position: sticky; top: 0; height: 100vh; }
+      .desktop-rail { display: flex; flex-direction: column; gap: var(--sp-3); padding-top: var(--sp-6); position: sticky; top: var(--sp-6); align-self: start; max-height: calc(100vh - var(--sp-6)); overflow-y: auto; }
+      .main { padding-top: var(--sp-6); padding-left: 0; padding-right: 0; }
+      .bottom-nav { display: none !important; }
     }
 
-    /* Header */
-    header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
-    h1 { font: 400 italic 26px Georgia, serif; margin: 0; }
-    .header-actions { display: flex; gap: 6px; align-items: center; }
+    /* ===== HEADER ===== */
+    .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3); }
+    .brand { font: italic 400 22px/1 var(--font-display); color: var(--text); }
+    @media (min-width: 960px) {
+      .brand { font-size: 24px; }
+      .topbar .brand { display: none; }
+    }
     .theme-btn {
-      background: transparent; border: 1px solid var(--border); padding: 6px 10px;
-      border-radius: 8px; cursor: pointer; font: inherit; color: var(--fg);
-      font-size: 13px;
+      min-width: 40px; min-height: 40px; padding: 0;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text-secondary);
+      transition: background var(--dur-fast) var(--ease);
     }
-    .live-dot {
-      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-      background: var(--good); margin-right: 4px; vertical-align: middle;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    .theme-btn:hover { background: var(--surface-raised); }
 
-    /* Status hero */
+    /* ===== STATUS HERO ===== */
     .hero-status {
-      font-size: 14px; color: var(--muted); margin: 0 0 16px;
-      min-height: 20px;
+      font-size: 16px; line-height: 1.4; color: var(--text);
+      margin-bottom: var(--sp-2); min-height: 22px;
+      display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
     }
+    .hero-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-muted); flex-shrink: 0;
+    }
+    .hero-dot.active { background: var(--success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+    .hero-summary { font-weight: 500; }
+    .hero-time { color: var(--text-muted); font-family: var(--font-mono); font-size: 13px; }
 
-    /* Input */
-    .input-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 8px; margin-bottom: 12px; box-shadow: var(--shadow);
-      display: flex; gap: 6px; align-items: center;
+    /* ===== SCHEDULE CHIPS (mobile under hero) ===== */
+    .schedule-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+    @media (min-width: 960px) { .schedule-chips { display: none; } }
+    .chip {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3); min-height: 36px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-pill); color: var(--text-secondary);
+      font-size: 13px; transition: background var(--dur-fast) var(--ease);
     }
-    input[type=text] {
-      flex: 1; padding: 12px 14px; border-radius: 8px; min-height: 44px;
-      border: 0; background: transparent; color: var(--fg);
-      font: inherit; font-size: 16px;  /* 16px = no iOS zoom on focus */
-      outline: none;
+    .chip:hover { background: var(--surface-raised); }
+    .chip.due-soon { border-color: var(--accent); color: var(--text); }
+    .chip-label { font-weight: 500; color: var(--text); }
+    .chip-time { color: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
+    .chip-action {
+      background: transparent; border: 0; color: var(--text-muted);
+      padding: 0 var(--sp-1); min-width: 28px; min-height: 28px; border-radius: var(--r-sm);
+      font-size: 12px;
     }
+    .chip-action:hover { background: var(--accent-subtle); color: var(--accent); }
+
+    /* ===== SCENE TILES ===== */
+    .scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    @media (min-width: 640px) { .scenes { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 960px) { .scenes { grid-template-columns: repeat(6, 1fr); } }
+    .scene-tile {
+      min-height: 92px; padding: var(--sp-3);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); color: var(--text);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2);
+      transition: transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+    }
+    .scene-tile:hover { background: var(--surface-raised); border-color: var(--border-strong); }
+    .scene-tile:active { transform: scale(0.97); background: var(--accent-subtle); }
+    .scene-tile.last-fired { border-color: var(--accent); }
+    .scene-glyph { font-size: 26px; line-height: 1; }
+    .scene-label { font-size: 13px; font-weight: 500; text-align: center; line-height: 1.2; }
+    .scene-more { color: var(--text-secondary); }
+    .scenes-more-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin-bottom: var(--sp-4); }
+    @media (min-width: 640px) { .scenes-more-row { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 960px) { .scenes-more-row { display: none; } }
+    .scenes-more-row.hidden { display: none; }
+
+    /* ===== COMMAND BAR ===== */
+    .command-card {
+      background: var(--surface-input); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: var(--sp-1);
+      display: flex; align-items: center; gap: var(--sp-1);
+      margin-bottom: var(--sp-3);
+    }
+    .command-card:focus-within { border-color: var(--accent); }
+    .command-input {
+      flex: 1; padding: var(--sp-3) var(--sp-3); min-height: 44px;
+      border: 0; background: transparent; color: var(--text);
+      font-size: 16px; outline: none;
+    }
+    .command-input::placeholder { color: var(--text-muted); }
     .mic-btn, .send-btn {
       min-width: 44px; min-height: 44px;
-      border-radius: 8px; cursor: pointer; font: inherit; font-size: 15px;
+      border: 0; border-radius: var(--r-sm);
       display: inline-flex; align-items: center; justify-content: center;
-      transition: filter 0.15s, transform 0.1s;
+      transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
     }
-    .mic-btn { background: var(--card-2); color: var(--fg); border: 1px solid var(--border); }
-    .mic-btn:hover { filter: brightness(1.05); }
-    .mic-btn.listening { background: var(--bad); color: #fff; border-color: var(--bad); animation: pulse 1.2s infinite; }
-    .send-btn { background: var(--accent); color: #fff; border: 0; padding: 0 18px; font-weight: 500; }
-    .send-btn:hover:not(:disabled) { filter: brightness(1.08); }
-    .send-btn:active { transform: scale(0.97); }
-    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .mic-btn { background: transparent; color: var(--text-secondary); font-size: 16px; }
+    .mic-btn:hover { background: var(--surface-raised); color: var(--text); }
+    .mic-btn.listening { background: var(--danger); color: #fff; animation: pulse 1.2s infinite; }
+    .send-btn { background: var(--accent); color: var(--accent-fg); padding: 0 var(--sp-4); font-weight: 500; }
+    .send-btn:hover { background: var(--accent-hover); }
+    .send-btn:active { transform: scale(0.97); background: var(--accent-press); }
 
     .response {
-      margin: 0 0 16px; padding: 14px 16px;
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      font-size: 14px; white-space: pre-wrap; box-shadow: var(--shadow);
+      margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); font-size: 14px; white-space: pre-wrap;
       display: none;
     }
-    .response.show { display: block; animation: slideDown 0.25s ease-out; }
-    .response.error { border-color: var(--accent); }
-    .response .meta {
-      display: block; margin-top: 8px; color: var(--muted);
-      font-family: var(--mono); font-size: 11px;
-    }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .response.show { display: block; animation: fadeIn var(--dur-base) var(--ease); }
+    .response.error { border-color: var(--danger); }
+    .response .meta { display: none; }
+    body.dev .response .meta { display: block; margin-top: var(--sp-2); color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Section header */
-    h2 {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
-      color: var(--muted); margin: 24px 0 10px; font-weight: 600;
+    /* ===== SECTIONS ===== */
+    .section-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin: var(--sp-6) 0 var(--sp-3); font-weight: 600;
     }
+    .section-label:first-child { margin-top: var(--sp-3); }
 
-    /* Quick actions */
-    .quick-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-    .quick-btn {
-      background: var(--card); color: var(--fg); border: 1px solid var(--border);
-      padding: 10px 14px; min-height: 44px; border-radius: 10px; cursor: pointer;
-      font: inherit; font-size: 13px;
-      display: inline-flex; align-items: center; gap: 6px;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .quick-btn:hover { background: var(--accent-soft); }
-    .quick-btn:active { transform: scale(0.97); }
-    .quick-btn .icon { font-size: 17px; }
-
-    /* Main layout */
-    .main-grid {
-      display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start;
-    }
-    @media (max-width: 980px) { .main-grid { grid-template-columns: 1fr; } }
-
-    /* Room grid */
-    .rooms {
-      display: grid; gap: 12px;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    }
-    .room {
-      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-      padding: 14px; box-shadow: var(--shadow);
-      display: flex; flex-direction: column; gap: 6px;
-      cursor: pointer; transition: box-shadow 0.2s, border-color 0.2s;
-    }
-    .room:hover { border-color: var(--accent-soft); box-shadow: var(--shadow-lg); }
-    .room.has-warm { background: linear-gradient(180deg, var(--warm-tint) 0%, var(--card) 100%); }
-    .room.has-cool { background: linear-gradient(180deg, var(--cool-tint) 0%, var(--card) 100%); }
-    .room-head {
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
-      margin-bottom: 4px;
-    }
-    .room-name { font-weight: 600; font-size: 15px; }
-    .room-tags { font-family: var(--mono); font-size: 10px; color: var(--muted); }
-    .device-row {
-      display: flex; align-items: center; gap: 10px; padding: 6px 0;
-      border-top: 1px solid var(--border);
-    }
-    .device-row:first-of-type { border-top: 0; }
-    .device-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
-    .device-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-    .device-title { font-weight: 500; font-size: 13px; }
-    .device-title.on { color: var(--good); }
-    .device-detail {
-      font-family: var(--mono); font-size: 11px; color: var(--muted);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .device-controls { display: flex; gap: 4px; flex-shrink: 0; }
-    .btn-icon {
-      min-width: 36px; min-height: 36px; padding: 0 8px;
-      background: var(--card-2); color: var(--fg); border: 1px solid var(--border);
-      border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px;
-      display: inline-flex; align-items: center; justify-content: center;
-      transition: background 0.15s, transform 0.1s;
-    }
-    .btn-icon:hover { background: var(--accent-soft); }
-    .btn-icon:active { transform: scale(0.92); }
-    .btn-icon.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .pending { color: var(--accent); font-style: italic; }
-    .offline { color: var(--muted); opacity: 0.6; }
-
-    /* Right rail */
-    .rail { display: flex; flex-direction: column; gap: 12px; }
-    .rail-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 12px 14px; box-shadow: var(--shadow);
-    }
-    .rail-card h3 {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--muted); margin: 0 0 8px; font-weight: 600;
-    }
-    .job, .event { padding: 8px 0; border-top: 1px solid var(--border); font-size: 12px; }
-    .job:first-of-type, .event:first-of-type { border-top: 0; padding-top: 0; }
-    .job { display: flex; align-items: center; gap: 8px; }
-    .job-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-    .job-fire-at { color: var(--muted); font-family: var(--mono); font-size: 11px; }
-    .event-row { display: flex; gap: 6px; align-items: baseline; font-family: var(--mono); font-size: 11px; }
-    .event-row .ts { color: var(--muted); flex-shrink: 0; }
-    .event-row .kind { color: var(--accent); flex-shrink: 0; }
-    .event-row .payload { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
-    .empty { color: var(--muted); font-style: italic; font-size: 12px; padding: 4px 0; }
-    .badge {
-      display: inline-block; padding: 1px 6px; margin-left: 6px;
-      background: var(--accent-soft); color: var(--accent);
-      border-radius: 4px; font-size: 10px; text-transform: uppercase;
-      letter-spacing: 0.05em; font-weight: 600; vertical-align: middle;
-    }
-    /* Unified climate card spanning the rooms grid */
+    /* ===== CLIMATE CARD ===== */
     .climate-card {
-      grid-column: 1 / -1;
-      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-      padding: 14px; box-shadow: var(--shadow); margin-bottom: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: var(--sp-4); margin-bottom: var(--sp-3);
     }
-    .climate-card.has-warm { background: linear-gradient(180deg, var(--warm-tint) 0%, var(--card) 100%); }
-    .climate-card.has-cool { background: linear-gradient(180deg, var(--cool-tint) 0%, var(--card) 100%); }
-    .climate-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .climate-title { font-weight: 600; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-    .climate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .climate-zones {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--sp-3);
+    }
     .climate-zone {
-      padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-2);
-      cursor: pointer; transition: border-color 0.15s;
+      padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm);
+      background: var(--surface-raised);
+      transition: border-color var(--dur-fast) var(--ease);
     }
-    .climate-zone:hover { border-color: var(--accent-soft); }
-    .climate-zone.on { border-color: var(--accent); }
-    .cz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-    .cz-name { font-weight: 600; font-size: 14px; text-transform: capitalize; }
-    .cz-mode { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }
-    .cz-temp { font: 300 32px/1 -apple-system, system-ui, sans-serif; letter-spacing: -0.02em; margin: 4px 0; }
-    .cz-setpoints { display: flex; gap: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-    .cz-controls { display: flex; gap: 6px; }
+    .climate-zone:hover { border-color: var(--border-strong); }
+    .climate-zone.heating { border-color: var(--accent); background: var(--accent-subtle); }
+    .climate-zone.cooling { border-color: var(--cool); background: var(--cool-subtle); }
+    .cz-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+    .cz-name { font-weight: 600; font-size: 14px; }
+    .cz-mode { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .cz-temp { font: 300 36px/1 var(--font-ui); letter-spacing: -0.02em; margin: var(--sp-2) 0; }
+    .cz-setpoints { display: flex; gap: var(--sp-3); font-family: var(--font-mono); font-size: 11px; color: var(--cool); margin-bottom: var(--sp-2); }
+    .cz-controls { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
     .cz-controls .btn-icon { flex: 1; }
 
-    /* Bottom nav (mobile only) */
-    .bottom-nav {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--card); border-top: 1px solid var(--border);
-      padding: 6px 4px calc(6px + var(--safe-bottom));
-      justify-content: space-around; z-index: 50;
-      box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+    /* ===== ROOM CARDS ===== */
+    .rooms {
+      display: grid; gap: var(--sp-3);
+      grid-template-columns: 1fr;
     }
-    @media (max-width: 760px) { .bottom-nav { display: flex; } }
+    @media (min-width: 640px) { .rooms { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 960px) { .rooms { grid-template-columns: repeat(3, 1fr); } }
+    .room {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      transition: border-color var(--dur-fast) var(--ease);
+      position: relative;
+    }
+    .room:hover { border-color: var(--border-strong); }
+    .room.has-active::before {
+      content: ''; position: absolute; left: 0; top: var(--sp-3); bottom: var(--sp-3);
+      width: 3px; background: var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+    }
+    .room.all-off { opacity: 0.75; }
+    .room-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); cursor: pointer; padding-bottom: var(--sp-1); }
+    .room-name { font-weight: 600; font-size: 15px; }
+    .room-tags { font-size: 11px; color: var(--text-muted); }
+    .device-row {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-2) 0; border-top: 1px solid var(--border);
+    }
+    .device-row:first-of-type { border-top: 0; padding-top: 0; }
+    .device-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; color: var(--text-secondary); }
+    .device-icon.on { color: var(--success); }
+    .device-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .device-title { font-size: 13px; font-weight: 500; }
+    .device-title.on { color: var(--success); }
+    .device-detail {
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .offline-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); opacity: 0.5; margin-left: var(--sp-1); }
+    .device-controls { display: flex; gap: var(--sp-1); flex-shrink: 0; }
+    .btn-icon {
+      min-width: 44px; min-height: 36px; padding: 0 var(--sp-2);
+      background: var(--surface-raised); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--r-sm); font-size: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+    }
+    .btn-icon:hover { background: var(--accent-subtle); border-color: var(--accent); }
+    .btn-icon:active { transform: scale(0.94); }
+    .btn-icon.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+    .btn-icon.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+    .more-rooms {
+      grid-column: 1 / -1;
+      background: transparent; border: 1px dashed var(--border);
+      border-radius: var(--r-md); padding: var(--sp-3);
+      color: var(--text-muted); font-size: 13px;
+      transition: background var(--dur-fast) var(--ease);
+    }
+    .more-rooms:hover { background: var(--surface); color: var(--text-secondary); }
+
+    /* ===== RIGHT RAIL (desktop) ===== */
+    .rail-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); padding: var(--sp-4);
+    }
+    .rail-card h3 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin: 0 0 var(--sp-3); font-weight: 600;
+    }
+    .rail-job, .rail-event {
+      padding: var(--sp-2) 0; border-top: 1px solid var(--border); font-size: 13px;
+    }
+    .rail-job:first-of-type, .rail-event:first-of-type { border-top: 0; padding-top: 0; }
+    .rail-job { display: flex; align-items: center; gap: var(--sp-2); }
+    .rail-job-meta { flex: 1; min-width: 0; }
+    .rail-job-label { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rail-job-time { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); }
+
+    /* ===== BADGES ===== */
+    .badge {
+      display: inline-block; padding: 1px 6px; margin-left: var(--sp-1);
+      background: var(--accent-subtle); color: var(--accent);
+      border-radius: var(--r-sm); font-size: 9px; text-transform: uppercase;
+      letter-spacing: 0.05em; font-weight: 600; vertical-align: middle;
+    }
+
+    /* ===== ACTIVITY FEED ===== */
+    .activity-list { display: flex; flex-direction: column; gap: 1px; }
+    .activity-item {
+      padding: var(--sp-2) var(--sp-3); display: flex; gap: var(--sp-3);
+      background: var(--surface); border-radius: var(--r-sm);
+      align-items: baseline; font-size: 13px;
+    }
+    .activity-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); flex-shrink: 0; min-width: 50px; }
+    .activity-text { flex: 1; color: var(--text); min-width: 0; }
+    .activity-room { color: var(--text-secondary); font-weight: 500; }
+
+    /* ===== SEARCH ===== */
+    .search-results { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-3); }
+    .search-item {
+      padding: var(--sp-3); background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-md); font-size: 14px;
+    }
+
+    /* ===== BOTTOM NAV (mobile) ===== */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: var(--sp-2) var(--sp-1) calc(var(--sp-2) + var(--safe-bottom));
+      display: flex; justify-content: space-around; z-index: 50;
+    }
     .nav-btn {
-      background: transparent; border: 0; color: var(--muted);
-      font: inherit; font-size: 10px; cursor: pointer; padding: 6px 12px;
+      background: transparent; border: 0; color: var(--text-muted);
+      font-size: 10px; padding: var(--sp-2) var(--sp-3);
       display: flex; flex-direction: column; align-items: center; gap: 2px;
-      min-height: 44px; min-width: 56px; border-radius: 8px;
+      min-height: 44px; min-width: 56px; border-radius: var(--r-sm);
+      transition: color var(--dur-fast) var(--ease);
     }
     .nav-btn.active { color: var(--accent); }
-    .nav-btn .icon { font-size: 20px; }
+    .nav-btn .nav-icon { font-size: 20px; }
 
+    /* ===== SIDEBAR (desktop) ===== */
+    .sidebar-brand { padding: 0 var(--sp-3) var(--sp-4); }
+    .sidebar-nav { display: flex; flex-direction: column; gap: var(--sp-1); }
+    .sidebar-nav .nav-btn {
+      flex-direction: row; justify-content: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3); width: 100%; font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .sidebar-nav .nav-btn.active { background: var(--accent-subtle); color: var(--accent); }
+
+    /* ===== SECTIONS show/hide ===== */
     .section { display: none; }
     .section.active { display: block; }
-    /* On desktop always show all sections */
-    @media (min-width: 761px) { .section { display: block !important; } }
+    @media (min-width: 960px) { .section { display: block !important; } }
 
-    /* Room detail sheet */
+    /* ===== SHEET / DRAWER ===== */
     .sheet-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+      opacity: 0; pointer-events: none; transition: opacity var(--dur-base) var(--ease); z-index: 100;
     }
     .sheet-backdrop.show { opacity: 1; pointer-events: auto; }
     .sheet {
       position: fixed; left: 0; right: 0; bottom: 0;
-      background: var(--card); border-radius: 16px 16px 0 0; z-index: 101;
-      padding: 20px 20px calc(20px + var(--safe-bottom));
-      max-height: 85vh; overflow-y: auto;
-      transform: translateY(100%); transition: transform 0.25s ease-out;
-      box-shadow: var(--shadow-lg);
+      background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0;
+      padding: var(--sp-4) var(--sp-4) calc(var(--sp-5) + var(--safe-bottom));
+      max-height: 88vh; overflow-y: auto;
+      transform: translateY(100%); transition: transform var(--dur-sheet) var(--ease);
+      box-shadow: var(--shadow-sheet); z-index: 101;
     }
     .sheet.show { transform: translateY(0); }
-    @media (min-width: 761px) {
+    @media (min-width: 760px) {
       .sheet {
-        left: 50%; right: auto; top: 50%; bottom: auto;
-        transform: translate(-50%, -45%) scale(0.96);
-        width: 480px; max-width: 90vw; border-radius: 16px;
-        max-height: 80vh;
+        left: auto; right: 0; top: 0; bottom: 0;
+        width: 420px; max-width: 90vw; height: 100vh; max-height: 100vh;
+        border-radius: 0; transform: translateX(100%);
       }
-      .sheet.show { transform: translate(-50%, -50%) scale(1); }
+      .sheet.show { transform: translateX(0); }
     }
-    .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .sheet-title { font: 400 italic 20px Georgia, serif; margin: 0; }
-    .sheet-close {
-      background: transparent; border: 0; font-size: 24px; cursor: pointer;
-      color: var(--muted); min-width: 44px; min-height: 44px;
-    }
-    .sheet .device-detail-block {
-      padding: 12px 0; border-bottom: 1px solid var(--border);
-    }
-    .sheet .device-detail-block:last-child { border-bottom: 0; }
-    .slider-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-    .slider-row label { font-size: 12px; color: var(--muted); min-width: 60px; }
-    .slider-row .val { font-family: var(--mono); font-size: 13px; min-width: 36px; text-align: right; }
-    input[type=range] {
-      flex: 1; height: 32px; cursor: pointer;
-      -webkit-appearance: none; appearance: none;
-      background: transparent;
-    }
-    input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--border); border-radius: 2px; }
-    input[type=range]::-moz-range-track { height: 4px; background: var(--border); border-radius: 2px; }
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none;
-      width: 24px; height: 24px; border-radius: 50%;
-      background: var(--accent); border: 2px solid var(--card);
-      margin-top: -10px; cursor: pointer;
-    }
-    input[type=range]::-moz-range-thumb {
-      width: 24px; height: 24px; border-radius: 50%;
-      background: var(--accent); border: 2px solid var(--card); cursor: pointer;
-    }
-    .source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
-    .source-btn {
-      padding: 12px; min-height: 44px;
-      background: var(--card-2); border: 1px solid var(--border); border-radius: 8px;
-      cursor: pointer; font: inherit; font-size: 13px; color: var(--fg);
-      text-transform: capitalize;
-    }
-    .source-btn:hover { background: var(--accent-soft); }
-    .source-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .sheet-handle { width: 36px; height: 4px; background: var(--border-strong); border-radius: var(--r-pill); margin: 0 auto var(--sp-3); }
+    @media (min-width: 760px) { .sheet-handle { display: none; } }
+    .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-4); }
+    .sheet-title { font: italic 400 22px/1 var(--font-display); margin: 0; }
+    .sheet-close { background: transparent; border: 0; font-size: 22px; color: var(--text-secondary); min-width: 44px; min-height: 44px; border-radius: var(--r-sm); }
+    .sheet-block { padding: var(--sp-4) 0; border-bottom: 1px solid var(--border); }
+    .sheet-block:last-child { border-bottom: 0; }
+    .sheet-block-head { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+    .sheet-block-title { font-weight: 600; font-size: 14px; }
 
-    /* Toast */
+    /* sliders */
+    .slider-row { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-2) 0; }
+    .slider-row label { font-size: 12px; color: var(--text-secondary); min-width: 56px; }
+    .slider-row .val { font-family: var(--font-mono); font-size: 13px; min-width: 40px; text-align: right; color: var(--text); }
+    input[type=range] {
+      flex: 1; height: 36px; cursor: pointer; background: transparent;
+      -webkit-appearance: none; appearance: none;
+    }
+    input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--border-strong); border-radius: 2px; }
+    input[type=range]::-moz-range-track { height: 4px; background: var(--border-strong); border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 22px; height: 22px;
+      border-radius: 50%; background: var(--accent); border: 2px solid var(--surface);
+      margin-top: -9px; cursor: pointer;
+    }
+    input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); cursor: pointer; }
+
+    .source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
+    .pill-btn {
+      padding: var(--sp-3); min-height: 44px;
+      background: var(--surface-raised); border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text); font-size: 13px;
+      text-transform: capitalize;
+      transition: background var(--dur-fast) var(--ease);
+    }
+    .pill-btn:hover { background: var(--accent-subtle); border-color: var(--accent); }
+    .pill-btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+    .pill-btn.primary:hover { background: var(--accent-hover); }
+
+    /* ===== TOAST ===== */
     .toast-container {
-      position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0) + 16px);
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      position: fixed; left: 0; right: 0; top: calc(var(--safe-top) + var(--sp-4));
+      display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
       pointer-events: none; z-index: 200;
     }
     .toast {
-      background: var(--card); color: var(--fg);
-      border: 1px solid var(--border); border-radius: 10px;
-      padding: 12px 16px; box-shadow: var(--shadow-lg);
-      font-size: 13px; max-width: 90vw;
-      animation: toastIn 0.3s ease-out;
+      pointer-events: auto;
+      background: var(--surface); color: var(--text); border: 1px solid var(--border-strong);
+      border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+      box-shadow: var(--shadow-toast); font-size: 14px;
+      display: flex; align-items: center; gap: var(--sp-3); max-width: 90vw;
+      animation: toastIn var(--dur-base) var(--ease);
+      position: relative; overflow: hidden;
     }
-    .toast.fade { animation: toastOut 0.3s ease-in forwards; }
+    .toast::after {
+      content: ''; position: absolute; left: 0; bottom: 0; height: 2px;
+      background: var(--accent); animation: toastProgress 5s linear forwards;
+    }
+    .toast.fade { animation: toastOut var(--dur-base) var(--ease) forwards; }
+    .toast .undo-btn {
+      background: transparent; border: 0; color: var(--accent); font-weight: 600;
+      padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm);
+    }
+    .toast .undo-btn:hover { background: var(--accent-subtle); }
     @keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes toastOut { to { opacity: 0; transform: translateY(-12px); } }
+    @keyframes toastProgress { to { right: 100%; left: auto; width: 0; } }
 
-    /* Pull-to-refresh */
+    /* ===== PTR ===== */
     .ptr-indicator {
       position: fixed; top: 0; left: 50%; transform: translate(-50%, -100%);
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 0 0 8px 8px; padding: 6px 16px; font-size: 12px;
-      color: var(--muted); transition: transform 0.2s; z-index: 30;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 0 0 var(--r-sm) var(--r-sm); padding: var(--sp-1) var(--sp-3);
+      font-size: 12px; color: var(--text-muted); transition: transform var(--dur-base) var(--ease); z-index: 30;
     }
     .ptr-indicator.show { transform: translate(-50%, 0); }
+
+    .empty { color: var(--text-muted); font-style: italic; font-size: 13px; padding: var(--sp-2) 0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>Home Brain</h1>
-        <div class="hero-status" id="hero-status"><span class="live-dot"></span>loading…</div>
-      </div>
-      <div class="header-actions">
-        <button class="theme-btn" id="theme-btn" title="cycle theme">◐</button>
-      </div>
-    </header>
+  <div class="layout">
 
-    <div class="input-card">
-      <input id="msg-input" type="text" placeholder="say or type — 'play jazz in the kitchen', 'set upstairs to 70', 'movie night'" autocomplete="off" />
-      <button class="mic-btn" id="mic-btn" title="voice (Web Speech API)">🎙</button>
-      <button class="send-btn" id="msg-send">Send</button>
-    </div>
-    <div id="msg-response" class="response"></div>
+    <aside class="sidebar">
+      <div class="sidebar-brand"><span class="brand">Home Brain</span></div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-section="home"><span class="nav-icon">🏠</span><span>Home</span></button>
+        <button class="nav-btn" data-section="activity"><span class="nav-icon">📋</span><span>Activity</span></button>
+        <button class="nav-btn" data-section="search"><span class="nav-icon">🔍</span><span>Search</span></button>
+      </nav>
+    </aside>
 
-    <section class="section active" id="section-rooms" data-section="rooms">
-      <h2>Quick actions</h2>
-      <div id="quick-row" class="quick-row"><span class="empty">loading…</span></div>
+    <main class="main">
+      <header class="topbar">
+        <span class="brand">Home Brain</span>
+        <button class="theme-btn" id="theme-btn" aria-label="Cycle theme">◐</button>
+      </header>
 
-      <h2>Rooms</h2>
-      <div id="rooms" class="rooms"><div class="empty">loading…</div></div>
-    </section>
-
-    <section class="section" id="section-activity" data-section="activity">
-      <div class="main-grid" style="grid-template-columns: 1fr;">
-        <div class="rail">
-          <div class="rail-card">
-            <h3>Scheduled jobs</h3>
-            <div id="schedule"><div class="empty">no pending jobs</div></div>
-          </div>
-          <div class="rail-card">
-            <h3>Recent events</h3>
-            <div id="events"><div class="empty">no events yet</div></div>
-          </div>
+      <section class="section active" data-section="home">
+        <div class="hero-status" id="hero-status" role="status" aria-live="polite">
+          <span class="hero-dot"></span><span class="hero-summary">…</span><span class="hero-time"></span>
         </div>
+        <div class="schedule-chips" id="schedule-chips"></div>
+
+        <div class="scenes" id="scenes-primary"></div>
+        <div class="scenes-more-row hidden" id="scenes-more"></div>
+
+        <div class="command-card">
+          <input class="command-input" id="msg-input" type="text"
+            placeholder="say or type — 'play jazz in the kitchen'" autocomplete="off" />
+          <button class="mic-btn" id="mic-btn" aria-label="Voice input" aria-pressed="false">🎙</button>
+          <button class="send-btn" id="msg-send" aria-label="Send">➤</button>
+        </div>
+        <div id="msg-response" class="response" role="status" aria-live="polite"></div>
+
+        <h2 class="section-label">Comfort</h2>
+        <div id="climate-section"></div>
+        <div id="comfort-rooms" class="rooms"></div>
+
+        <h2 class="section-label">Entertainment</h2>
+        <div id="entertainment-rooms" class="rooms"></div>
+
+        <h2 class="section-label">Lighting</h2>
+        <div id="lighting-rooms" class="rooms"></div>
+      </section>
+
+      <section class="section" data-section="activity">
+        <h2 class="section-label">Recent activity</h2>
+        <div id="activity-feed" class="activity-list"><div class="empty">no events yet</div></div>
+      </section>
+
+      <section class="section" data-section="search">
+        <h2 class="section-label">Search</h2>
+        <div class="command-card">
+          <input class="command-input" id="search-input" type="text" placeholder="search rooms or devices…" />
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </section>
+    </main>
+
+    <aside class="desktop-rail">
+      <div class="rail-card">
+        <h3>Schedule</h3>
+        <div id="rail-schedule"><div class="empty">no pending jobs</div></div>
       </div>
-    </section>
+      <div class="rail-card">
+        <h3>Recent activity</h3>
+        <div id="rail-activity"><div class="empty">no events yet</div></div>
+      </div>
+    </aside>
+
   </div>
 
-  <!-- desktop side rail (hidden on mobile via media query at bottom) -->
-  <style>
-    .desktop-rail { display: none; }
-    @media (min-width: 761px) {
-      .container { display: grid; grid-template-columns: 1fr 320px; gap: 20px; padding: 20px; }
-      .container > header, .container > .input-card, .container > .response { grid-column: 1 / -1; }
-      .desktop-rail { display: flex; flex-direction: column; gap: 12px; }
-      #section-activity { display: none !important; }
-    }
-  </style>
-  <aside class="desktop-rail">
-    <div class="rail-card">
-      <h3>Scheduled jobs</h3>
-      <div id="schedule-desk"><div class="empty">no pending jobs</div></div>
-    </div>
-    <div class="rail-card">
-      <h3>Recent events</h3>
-      <div id="events-desk"><div class="empty">no events yet</div></div>
-    </div>
-  </aside>
-
-  <nav class="bottom-nav" id="bottom-nav">
-    <button class="nav-btn active" data-section="rooms"><span class="icon">🏠</span><span>Rooms</span></button>
-    <button class="nav-btn" data-section="activity"><span class="icon">📋</span><span>Activity</span></button>
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-section="home"><span class="nav-icon">🏠</span><span>Home</span></button>
+    <button class="nav-btn" data-section="activity"><span class="nav-icon">📋</span><span>Activity</span></button>
+    <button class="nav-btn" data-section="search"><span class="nav-icon">🔍</span><span>Search</span></button>
   </nav>
 
-  <!-- Room detail sheet -->
   <div class="sheet-backdrop" id="sheet-backdrop"></div>
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
-
-  <!-- Toasts + PTR -->
-  <div class="toast-container" id="toasts"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+  <div class="toast-container" id="toasts" role="alert" aria-live="assertive"></div>
   <div class="ptr-indicator" id="ptr">↓ pull to refresh</div>
 
 <script>
@@ -481,21 +597,30 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 const jstr = (s) => JSON.stringify(s).replace(/"/g, '&quot;');
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
-// ----- state -----
+// ===== STATE =====
 let HOUSE = null;
 let WORLD = {};
-let SEEN_EVENT_TS = 0;  // for toast deduping
+let LAST_EVENT_TS = 0;
 let CURRENT_SHEET = null;
+let CURRENT_SECTION = 'home';
+let LAST_UNDO = null;          // { snapshot, label, commands }
+let OPTIMISTIC = {};            // overlay over WORLD
+const FIRST_CLASS_SCENES = new Set(['good morning', 'movie night', 'goodnight']);
+const ENTERTAINMENT = new Set(['music', 'av', 'tv']);
+const COMFORT = new Set(['hot_tub', 'pool', 'skylight']);
 
-// ----- theme -----
-const THEMES = ['system', 'light', 'dark'];
+// ===== THEME =====
+const THEMES = ['system', 'dark', 'light'];
 function applyTheme(t) {
-  document.documentElement.classList.remove('theme-system','theme-light','theme-dark');
-  document.documentElement.classList.add('theme-' + t);
-  $('theme-btn').textContent = t === 'dark' ? '🌙' : t === 'light' ? '☀' : '◐';
-  $('theme-btn').title = 'theme: ' + t + ' (tap to cycle)';
+  const root = document.documentElement;
+  if (t === 'system') {
+    root.removeAttribute('data-theme');
+  } else {
+    root.setAttribute('data-theme', t);
+  }
+  $('theme-btn').textContent = t === 'light' ? '☀' : t === 'dark' ? '🌙' : '◐';
 }
-let theme = localStorage.getItem('hb-theme') || 'system';
+let theme = localStorage.getItem('hb-theme') || 'dark';
 applyTheme(theme);
 $('theme-btn').addEventListener('click', () => {
   theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
@@ -503,41 +628,68 @@ $('theme-btn').addEventListener('click', () => {
   applyTheme(theme);
 });
 
-// ----- icons per device -----
-const ICONS = {
-  music: '🎵', lights: '💡', skylight: '🌤', av: '📺', tv: '📺',
-  hot_tub: '🛁', pool: '🏊', climate: '🌡',
-};
+// ===== ICONS =====
+const ICONS = { music: '🎵', lights: '💡', skylight: '🌤', av: '📺', tv: '📺', hot_tub: '🛁', pool: '🏊', climate: '🌡' };
 const iconFor = (d) => ICONS[d] ?? (d.startsWith('hvac') ? '🌡' : '•');
 
-// ----- toasts -----
-function toast(msg, kind = 'info') {
+// ===== TOASTS =====
+function toast(msg, opts = {}) {
   const el = document.createElement('div');
-  el.className = 'toast ' + kind;
-  el.textContent = msg;
+  el.className = 'toast';
+  el.innerHTML = '<span>' + esc(msg) + '</span>' + (opts.undo ? '<button class="undo-btn">Undo</button>' : '');
   $('toasts').appendChild(el);
-  setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 300); }, 4000);
+  if (opts.undo) {
+    el.querySelector('.undo-btn').addEventListener('click', () => {
+      opts.undo();
+      dismiss();
+    });
+  }
+  const dismiss = () => { el.classList.add('fade'); setTimeout(() => el.remove(), 200); };
+  const timeout = setTimeout(dismiss, opts.duration || 5000);
+  el.addEventListener('mouseenter', () => clearTimeout(timeout));
 }
 
-// ----- send -----
-async function send(text) {
-  if (!text) return;
-  $('msg-response').classList.add('show');
-  $('msg-response').classList.remove('error');
-  $('msg-response').textContent = '…';
+// ===== STATE merge (for optimistic updates) =====
+function getState(slug, device) {
+  const o = OPTIMISTIC[slug + '/' + device];
+  const s = WORLD[slug]?.[device];
+  if (!o) return s;
+  // Merge optimistic over real
+  return { ...s, state: { ...(s?.state ?? {}), ...o } };
+}
+function applyOptimistic(slug, device, patch) {
+  OPTIMISTIC[slug + '/' + device] = { ...(OPTIMISTIC[slug + '/' + device] ?? {}), ...patch };
+  renderAll();
+}
+function clearOptimistic() { OPTIMISTIC = {}; }
+
+// ===== SEND =====
+async function send(text, opts = {}) {
+  if (!text) return null;
+  if (!opts.silent) {
+    $('msg-response').classList.add('show');
+    $('msg-response').classList.remove('error');
+    $('msg-response').textContent = '…';
+  }
   try {
     const r = await fetch('/message', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ text }),
     });
     const data = await r.json();
-    $('msg-response').classList.toggle('error', !data.ok);
-    $('msg-response').innerHTML = esc(data.response) +
-      '<span class="meta">' + esc(data.route) + ' · ' + data.latencyMs + 'ms · ' + (data.toolCalls?.length ?? 0) + ' call(s)</span>';
+    if (!opts.silent) {
+      $('msg-response').classList.toggle('error', !data.ok);
+      $('msg-response').innerHTML = esc(data.response) +
+        '<span class="meta">' + esc(data.route) + ' · ' + data.latencyMs + 'ms · ' + (data.toolCalls?.length ?? 0) + ' call(s)</span>';
+    }
     refresh();
+    return data;
   } catch (err) {
-    $('msg-response').classList.add('error');
-    $('msg-response').textContent = 'error: ' + err.message;
+    if (!opts.silent) {
+      $('msg-response').classList.add('error');
+      $('msg-response').textContent = 'error: ' + err.message;
+    }
+    return null;
   }
 }
 async function sendMessage() {
@@ -548,215 +700,392 @@ async function sendMessage() {
 }
 window.quickSend = (text) => send(text);
 window.cancelJob = async (id) => { await fetch('/schedule/' + id + '/cancel', { method: 'POST' }); renderSchedule(); };
-window.snoozeJob = async (id, byMinutes) => {
+window.snoozeJob = async (id, by) => {
   const r = await fetch('/schedule/' + id + '/snooze', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ by_minutes: byMinutes }),
+    body: JSON.stringify({ by_minutes: by }),
   });
-  if (r.ok) { toast('snoozed ' + byMinutes + ' min'); renderSchedule(); }
+  if (r.ok) { toast('Snoozed ' + by + ' min'); renderSchedule(); }
 };
 
-// ----- voice input (Web Speech API) -----
+// ===== VOICE =====
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 if (SR) {
   const rec = new SR();
   rec.continuous = false; rec.interimResults = true; rec.lang = 'en-US';
   $('mic-btn').addEventListener('click', () => {
-    if ($('mic-btn').classList.contains('listening')) { rec.stop(); return; }
-    $('mic-btn').classList.add('listening');
+    const btn = $('mic-btn');
+    if (btn.classList.contains('listening')) { rec.stop(); return; }
+    btn.classList.add('listening');
+    btn.setAttribute('aria-pressed', 'true');
     try { rec.start(); } catch {}
   });
   rec.onresult = (e) => {
     const txt = Array.from(e.results).map(r => r[0].transcript).join('');
     $('msg-input').value = txt;
-    if (e.results[e.results.length-1].isFinal) { $('mic-btn').classList.remove('listening'); sendMessage(); }
+    if (e.results[e.results.length-1].isFinal) {
+      $('mic-btn').classList.remove('listening');
+      $('mic-btn').setAttribute('aria-pressed', 'false');
+      sendMessage();
+    }
   };
-  rec.onerror = () => $('mic-btn').classList.remove('listening');
-  rec.onend = () => $('mic-btn').classList.remove('listening');
+  const stop = () => { $('mic-btn').classList.remove('listening'); $('mic-btn').setAttribute('aria-pressed', 'false'); };
+  rec.onerror = stop; rec.onend = stop;
 } else {
   $('mic-btn').style.display = 'none';
 }
 
-// ----- bottom nav -----
-document.querySelectorAll('.nav-btn').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('.nav-btn').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    b.classList.add('active');
-    $('section-' + b.dataset.section).classList.add('active');
-  });
-});
-
-// ----- quick actions -----
-function renderQuick() {
-  const qa = HOUSE?.quick_actions ?? [];
-  if (!qa.length) {
-    $('quick-row').innerHTML = '<span class="empty">configure under preferences.quick_actions</span>';
-    return;
-  }
-  $('quick-row').innerHTML = qa.map(a => {
-    const icon = a.icon ? '<span class="icon">' + esc(a.icon) + '</span>' : '';
-    return '<button class="quick-btn" onclick="quickSend(' + jstr(a.message) + ')">' + icon + esc(a.label) + '</button>';
-  }).join('');
+// ===== NAV =====
+function switchSection(name) {
+  CURRENT_SECTION = name;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.section === name));
+  document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.dataset.section === name));
 }
+document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => switchSection(b.dataset.section)));
 
-// ----- rooms -----
-function isHvacOnlyRoom(slug) {
+// ===== ROOM CLASSIFICATION =====
+function isHvacOnly(slug) {
   const devs = HOUSE.rooms[slug]?.devices ?? [];
   return devs.length > 0 && devs.every(d => d.startsWith('hvac_') || d === 'climate');
 }
+function roomGroup(slug) {
+  const devs = HOUSE.rooms[slug].devices;
+  if (devs.some(d => ENTERTAINMENT.has(d))) return 'entertainment';
+  if (devs.some(d => COMFORT.has(d))) return 'comfort';
+  if (devs.includes('lights')) return 'lighting';
+  return null;
+}
+function isRoomActive(slug) {
+  const ws = WORLD[slug] || {};
+  for (const [d, msg] of Object.entries(ws)) {
+    const s = msg?.state ?? {};
+    if (d === 'music' && (s.playState === 'PLAYING' || s.playing === true)) return true;
+    if (d === 'lights' && s.on === true) return true;
+    if (d === 'av' && s.power === true) return true;
+    if (d === 'tv' && s.on === true) return true;
+    if (d === 'skylight' && s.open === true) return true;
+    if ((d === 'hot_tub' || d === 'pool') && (s.mode === 'heat' || s.heater_on === true)) return true;
+    if (d.startsWith('hvac_') && (s.hvac_state === 'heating' || s.hvac_state === 'cooling')) return true;
+  }
+  return false;
+}
+function isRoomOnline(slug) {
+  const ws = WORLD[slug] || {};
+  for (const msg of Object.values(ws)) if (msg?.online !== false) return true;
+  return Object.keys(ws).length === 0; // unknown = treat online so we show
+}
 
-function renderClimateCard() {
-  if (!HOUSE) return '';
-  const slugs = Object.keys(HOUSE.rooms).filter(isHvacOnlyRoom);
-  if (!slugs.length) return '';
-  const zones = slugs.flatMap(slug => {
-    const state = WORLD[slug] || {};
-    return HOUSE.rooms[slug].devices.map(device => ({
-      slug, device,
-      label: HOUSE.rooms[slug].label.replace(/ HVAC$/i, ''),
-      state: state[device]?.state || {},
-      online: state[device]?.online !== false,
-    }));
-  });
-  const anyCooling = zones.some(z => z.state.hvac_state === 'cooling' || z.state.mode === 'cool');
-  const anyHeating = zones.some(z => z.state.hvac_state === 'heating' || z.state.mode === 'heat');
-  const tint = anyCooling ? ' has-cool' : (anyHeating ? ' has-warm' : '');
-  const blocks = zones.map(z => {
+// ===== STATUS HERO =====
+function renderHero() {
+  const now = new Date();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const clauses = [];
+  for (const slug of Object.keys(HOUSE?.rooms ?? {})) {
+    const label = HOUSE.rooms[slug].label;
+    const ws = WORLD[slug] || {};
+    for (const [d, msg] of Object.entries(ws)) {
+      const s = msg?.state ?? {};
+      if (d === 'music' && (s.playState === 'PLAYING' || s.playing === true)) {
+        const t = s.track ?? 'Music';
+        clauses.push(t + ' in ' + label);
+      } else if (d === 'av' && s.power === true) {
+        clauses.push((s.current_source ?? 'AV') + ' in ' + label);
+      } else if ((d === 'hot_tub' || d === 'pool') && (s.mode === 'heat' || s.heater_on === true)) {
+        clauses.push((d === 'hot_tub' ? 'Hot tub' : 'Pool') + ' heating to ' + (s.target_f ?? '?') + '°');
+      } else if (d.startsWith('hvac_') && (s.hvac_state === 'heating' || s.hvac_state === 'cooling')) {
+        clauses.push(label + ' ' + s.hvac_state);
+      } else if (d === 'skylight' && s.open === true) {
+        clauses.push(label + ' skylight open');
+      }
+    }
+  }
+  const active = clauses.length > 0;
+  const summary = active ? clauses.slice(0, 3).join(' · ') : 'All quiet';
+  $('hero-status').innerHTML =
+    '<span class="hero-dot' + (active ? ' active' : '') + '"></span>' +
+    '<span class="hero-summary">' + esc(summary) + '</span>' +
+    '<span class="hero-time">' + esc(time) + '</span>';
+}
+
+// ===== SCHEDULE CHIPS + RAIL =====
+let SCHEDULE = [];
+async function renderSchedule() {
+  try {
+    const { jobs } = await (await fetch('/schedule')).json();
+    SCHEDULE = jobs;
+  } catch { SCHEDULE = []; }
+
+  // mobile chips: next 2
+  const chips = SCHEDULE.slice(0, 2).map(j => {
+    const label = j.label || j.actions.map(a => prettifyAction(a)).join(' + ');
+    const when = new Date(j.fireAt);
+    const dueSoon = (when.getTime() - Date.now()) < 30 * 60_000;
+    const local = humanTime(when);
+    const recur = j.recurrence ? '<span class="badge">' + esc(j.recurrence) + '</span>' : '';
+    return '<div class="chip' + (dueSoon ? ' due-soon' : '') + '">' +
+      '<span class="chip-label">' + esc(label) + '</span>' + recur +
+      '<span class="chip-time">' + esc(local) + '</span>' +
+      '<button class="chip-action" title="snooze 15m" onclick="snoozeJob(' + jstr(j.id) + ', 15)">+15</button>' +
+      '<button class="chip-action" title="cancel" onclick="cancelJob(' + jstr(j.id) + ')">×</button>' +
+    '</div>';
+  }).join('');
+  $('schedule-chips').innerHTML = chips;
+
+  // desktop rail: next 5
+  const rail = SCHEDULE.length ? SCHEDULE.slice(0, 5).map(j => {
+    const label = j.label || j.actions.map(a => prettifyAction(a)).join(' + ');
+    const when = new Date(j.fireAt);
+    const recur = j.recurrence ? '<span class="badge">' + esc(j.recurrence) + '</span>' : '';
+    return '<div class="rail-job"><div class="rail-job-meta">' +
+      '<div class="rail-job-label">' + esc(label) + recur + '</div>' +
+      '<div class="rail-job-time">' + esc(humanTime(when)) + '</div></div>' +
+      '<button class="btn-icon" onclick="snoozeJob(' + jstr(j.id) + ', 15)">+15</button>' +
+      '<button class="btn-icon" onclick="cancelJob(' + jstr(j.id) + ')">×</button></div>';
+  }).join('') : '<div class="empty">no pending jobs</div>';
+  $('rail-schedule').innerHTML = rail;
+}
+function humanTime(d) {
+  const ms = d.getTime() - Date.now();
+  if (Math.abs(ms) < 60 * 60_000) {
+    const m = Math.round(ms / 60_000);
+    return m === 0 ? 'now' : m > 0 ? 'in ' + m + 'm' : (-m) + 'm ago';
+  }
+  return d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+}
+function prettifyAction(a) {
+  // strip slug-y tool names into plain language
+  const map = { set_lights: 'Lights', set_music: 'Music', set_climate: 'Climate',
+    set_skylight: 'Skylight', control_av: 'AV', run_scene: 'Scene', run_c4_scene: 'Scene' };
+  return map[a.tool] || a.tool.replace(/_/g, ' ');
+}
+
+// ===== SCENES =====
+function renderScenes() {
+  const all = HOUSE?.quick_actions ?? [];
+  const primary = all.filter(a => FIRST_CLASS_SCENES.has(a.label.toLowerCase()));
+  const more = all.filter(a => !FIRST_CLASS_SCENES.has(a.label.toLowerCase()));
+  const tile = (a) => '<button class="scene-tile" onclick="fireScene(' + jstr(a.label) + ', ' + jstr(a.message) + ')" aria-label="Activate ' + esc(a.label) + '">' +
+    (a.icon ? '<span class="scene-glyph" aria-hidden="true">' + esc(a.icon) + '</span>' : '') +
+    '<span class="scene-label">' + esc(a.label) + '</span></button>';
+  // first-class first, then a "More" tile that toggles the more row
+  const moreBtn = more.length ? '<button class="scene-tile scene-more" onclick="document.getElementById(\'scenes-more\').classList.toggle(\'hidden\')" aria-label="More scenes"><span class="scene-glyph" aria-hidden="true">⋯</span><span class="scene-label">More</span></button>' : '';
+  $('scenes-primary').innerHTML = primary.map(tile).join('') + moreBtn;
+  $('scenes-more').innerHTML = more.map(tile).join('');
+}
+window.fireScene = async (label, message) => {
+  const snapshot = JSON.parse(JSON.stringify(WORLD));
+  LAST_UNDO = { snapshot, label, kind: 'scene' };
+  await send(message, { silent: true });
+  toast('Activated ' + label, { undo: () => doUndo(snapshot, label) });
+};
+
+// ===== UNDO =====
+function doUndo(snapshot, label) {
+  // Walk the snapshot vs current state, send restoration commands.
+  const cmds = [];
+  for (const [slug, devs] of Object.entries(snapshot)) {
+    const roomLabel = (HOUSE.rooms[slug]?.label || slug).toLowerCase();
+    for (const [d, msg] of Object.entries(devs)) {
+      const before = msg?.state ?? {};
+      const after = WORLD[slug]?.[d]?.state ?? {};
+      if (d === 'lights') {
+        const wasOn = before.on === true;
+        const isOn = after.on === true;
+        if (wasOn && !isOn) cmds.push('turn the ' + roomLabel + ' lights to ' + (before.brightness ?? 80) + '%');
+        else if (!wasOn && isOn) cmds.push('turn off the ' + roomLabel + ' lights');
+        else if (wasOn && isOn && before.brightness !== after.brightness)
+          cmds.push('set the ' + roomLabel + ' lights to ' + (before.brightness ?? 80) + '%');
+      } else if (d === 'music') {
+        const wasPlay = before.playState === 'PLAYING';
+        const isPlay = after.playState === 'PLAYING';
+        if (wasPlay && !isPlay) cmds.push('resume music in the ' + roomLabel);
+        else if (!wasPlay && isPlay) cmds.push('pause music in the ' + roomLabel);
+      } else if (d === 'av') {
+        if (before.power && !after.power) cmds.push('watch ' + (before.current_source ?? 'apple tv') + ' in the ' + roomLabel);
+        else if (!before.power && after.power) cmds.push('turn off the ' + roomLabel);
+      } else if (d === 'skylight') {
+        if (before.open && !after.open) cmds.push('open the ' + roomLabel + ' skylight');
+        else if (!before.open && after.open) cmds.push('close the ' + roomLabel + ' skylight');
+      }
+    }
+  }
+  if (!cmds.length) { toast('Nothing to undo'); return; }
+  cmds.forEach(c => send(c, { silent: true }));
+  toast('Undid ' + label);
+}
+
+// ===== CLIMATE CARD =====
+function renderClimate() {
+  if (!HOUSE) return;
+  const slugs = Object.keys(HOUSE.rooms).filter(isHvacOnly);
+  if (!slugs.length) { $('climate-section').innerHTML = ''; return; }
+  const zones = slugs.flatMap(slug => HOUSE.rooms[slug].devices.map(d => ({
+    slug, device: d,
+    label: HOUSE.rooms[slug].label.replace(/ HVAC$/i, ''),
+    state: getState(slug, d)?.state ?? {},
+  })));
+  const html = zones.map(z => {
     const cur = z.state.current_f;
     const heat = z.state.heat_setpoint_f;
     const cool = z.state.cool_setpoint_f;
-    const mode = z.state.mode || '?';
-    const isOn = z.state.hvac_state === 'cooling' || z.state.hvac_state === 'heating';
+    const mode = z.state.mode || 'off';
+    const hvac = z.state.hvac_state || 'idle';
+    const cls = hvac === 'cooling' ? ' cooling' : hvac === 'heating' ? ' heating' : '';
     const pretty = z.slug.replace(/_/g, ' ').replace(/ hvac$/i, '');
-    return '<div class="climate-zone' + (isOn ? ' on' : '') + '" onclick="openSheet(' + jstr(z.slug) + ')">' +
-      '<div class="cz-head">' +
-        '<span class="cz-name">' + esc(z.label) + '</span>' +
-        '<span class="cz-mode">' + esc(mode) + (isOn ? ' · ' + z.state.hvac_state : '') + '</span>' +
-      '</div>' +
+    return '<div class="climate-zone' + cls + '" onclick="openSheet(' + jstr(z.slug) + ')" role="button" tabindex="0" aria-label="' + esc(z.label) + ' climate, currently ' + (cur != null ? cur + ' degrees' : 'unknown') + '">' +
+      '<div class="cz-head"><span class="cz-name">' + esc(z.label) + '</span><span class="cz-mode">' + esc(mode) + (hvac !== 'idle' ? ' · ' + hvac : '') + '</span></div>' +
       '<div class="cz-temp">' + (cur != null ? cur + '°' : '—') + '</div>' +
-      '<div class="cz-setpoints">' +
-        '<span title="heat setpoint">▲ ' + (heat ?? '—') + '°</span>' +
-        '<span title="cool setpoint">▼ ' + (cool ?? '—') + '°</span>' +
-      '</div>' +
+      '<div class="cz-setpoints"><span>▲ ' + (heat ?? '—') + '°</span><span>▼ ' + (cool ?? '—') + '°</span></div>' +
       '<div class="cz-controls" onclick="event.stopPropagation()">' +
-        '<button class="btn-icon" onclick="quickSend(' + jstr('lower the ' + pretty + ' temperature by 2') + ')">−</button>' +
-        '<button class="btn-icon" onclick="quickSend(' + jstr('raise the ' + pretty + ' temperature by 2') + ')">+</button>' +
+        '<button class="btn-icon" aria-label="cooler" onclick="optimisticTempStep(' + jstr(z.slug) + ', ' + jstr(z.device) + ', -2)">−</button>' +
+        '<button class="btn-icon" aria-label="warmer" onclick="optimisticTempStep(' + jstr(z.slug) + ', ' + jstr(z.device) + ', 2)">+</button>' +
       '</div>' +
     '</div>';
   }).join('');
-  return '<div class="climate-card' + tint + '">' +
-    '<div class="climate-head"><span class="climate-title">🌡 Climate</span></div>' +
-    '<div class="climate-grid">' + blocks + '</div>' +
-  '</div>';
+  $('climate-section').innerHTML = '<div class="climate-card"><div class="climate-zones">' + html + '</div></div>';
+}
+window.optimisticTempStep = (slug, device, delta) => {
+  const cur = getState(slug, device)?.state ?? {};
+  const newCool = Math.max(60, Math.min(85, (cur.cool_setpoint_f ?? 75) + delta));
+  applyOptimistic(slug, device, { cool_setpoint_f: newCool });
+  const pretty = slug.replace(/_/g, ' ').replace(/ hvac$/i, '');
+  send((delta > 0 ? 'raise' : 'lower') + ' the ' + pretty + ' temperature by ' + Math.abs(delta), { silent: true });
+};
+
+// ===== ROOM CARDS =====
+function renderRoomCard(slug) {
+  const room = HOUSE.rooms[slug];
+  // Pick up to 3 device rows, prioritising "interesting" ones
+  const order = ['music', 'av', 'lights', 'tv', 'skylight', 'hot_tub', 'pool'];
+  const devs = [...room.devices].sort((a, b) => {
+    const oa = order.indexOf(a); const ob = order.indexOf(b);
+    return (oa === -1 ? 99 : oa) - (ob === -1 ? 99 : ob);
+  }).slice(0, 3);
+  const rows = devs.map(d => renderDeviceRow(slug, d, getState(slug, d))).filter(Boolean).join('');
+  if (!rows) return '';
+  const active = isRoomActive(slug);
+  const cls = 'room' + (active ? ' has-active' : ' all-off');
+  return '<div class="' + cls + '">' +
+    '<div class="room-head" onclick="openSheet(' + jstr(slug) + ')" role="button" tabindex="0" aria-label="Open ' + esc(room.label) + '">' +
+      '<span class="room-name">' + esc(room.label) + '</span>' +
+      '<span class="room-tags">' + devs.length + (room.devices.length > devs.length ? '/' + room.devices.length : '') + '</span>' +
+    '</div>' + rows + '</div>';
 }
 
-function renderRooms() {
-  if (!HOUSE) return;
-  const allSlugs = Object.keys(HOUSE.rooms).sort();
-  const roomSlugs = allSlugs.filter(s => !isHvacOnlyRoom(s));
-  if (!allSlugs.length) { $('rooms').innerHTML = '<div class="empty">no rooms configured</div>'; return; }
-  const roomCards = roomSlugs.map(slug => {
-    const room = HOUSE.rooms[slug];
-    const state = WORLD[slug] || {};
-    const rows = room.devices.map(d => renderDevice(slug, d, state[d])).filter(Boolean).join('');
-    if (!rows) return '';
-    const hasLightsOn = state.lights?.state?.on;
-    const hvacKey = Object.keys(state).find(k => k.startsWith('hvac') || k === 'climate');
-    const hvac = hvacKey ? state[hvacKey]?.state : null;
-    const isCooling = hvac && (hvac.hvac_state === 'cooling' || hvac.mode === 'cool');
-    const tint = hasLightsOn ? ' has-warm' : (isCooling ? ' has-cool' : '');
-    return '<div class="room' + tint + '" onclick="openSheet(' + jstr(slug) + ')">' +
-      '<div class="room-head"><div class="room-name">' + esc(room.label) + '</div>' +
-      '<div class="room-tags">' + room.devices.length + ' device' + (room.devices.length===1?'':'s') + '</div></div>' +
-      rows + '</div>';
-  }).filter(Boolean).join('');
-  $('rooms').innerHTML = renderClimateCard() + roomCards;
-}
-
-function renderDevice(roomSlug, device, msg) {
+function renderDeviceRow(slug, device, msg) {
   const icon = iconFor(device);
   const state = msg?.state ?? {};
   const offline = msg && msg.online === false;
-  const pending = msg?.pending;
-  const pretty = roomSlug.replace(/_/g, ' ');
-  let title = device.replace(/_/g, ' '), detail = '—', controls = '', isOn = false;
+  const pretty = HOUSE.rooms[slug].label.toLowerCase();
+  let title = device.replace(/_/g, ' '), detail = '—', controls = '', on = false;
 
   if (device === 'music') {
     const playing = state.playState === 'PLAYING' || state.playing === true;
-    isOn = playing;
+    on = playing;
     title = playing ? 'Playing' : (state.track ? 'Paused' : 'Music');
     detail = state.track ? ((state.artist ? state.artist + ' · ' : '') + state.track) : ('volume ' + (state.volume ?? '—'));
     controls = stopProp(
-      '<button class="btn-icon" onclick="quickSend(' + jstr((playing?'pause':'resume')+' music in the '+pretty) + ')">' + (playing?'⏸':'▶') + '</button>' +
-      '<button class="btn-icon" onclick="quickSend(' + jstr('lower the '+pretty+' music volume by 10') + ')">−</button>' +
-      '<button class="btn-icon" onclick="quickSend(' + jstr('raise the '+pretty+' music volume by 10') + ')">+</button>'
+      iconBtn(playing ? '⏸' : '▶', (playing ? 'pause' : 'resume') + ' music in the ' + pretty) +
+      iconBtn('−', 'lower the ' + pretty + ' music volume by 10') +
+      iconBtn('+', 'raise the ' + pretty + ' music volume by 10')
     );
   } else if (device === 'lights') {
-    isOn = state.on;
+    on = state.on;
     title = 'Lights';
     detail = state.on ? ((state.brightness ?? '?') + '%') : 'off';
     controls = stopProp(
-      '<button class="btn-icon" onclick="quickSend(' + jstr('turn off the '+pretty+' lights') + ')">off</button>' +
-      '<button class="btn-icon" onclick="quickSend(' + jstr('dim the '+pretty+' lights to 30') + ')">30%</button>' +
-      '<button class="btn-icon primary" onclick="quickSend(' + jstr('turn on the '+pretty+' lights') + ')">on</button>'
+      iconBtn('off', 'turn off the ' + pretty + ' lights') +
+      iconBtn('30%', 'dim the ' + pretty + ' lights to 30') +
+      iconBtn('on', 'turn on the ' + pretty + ' lights', 'primary')
     );
   } else if (device === 'skylight') {
-    isOn = state.open;
+    on = state.open;
     title = 'Skylight';
     detail = state.open ? 'open' : 'closed';
     controls = stopProp(
-      '<button class="btn-icon" onclick="quickSend(' + jstr('close the '+pretty+' skylight') + ')">close</button>' +
-      '<button class="btn-icon primary" onclick="quickSend(' + jstr('open the '+pretty+' skylight') + ')">open</button>'
+      iconBtn('close', 'close the ' + pretty + ' skylight') +
+      iconBtn('open', 'open the ' + pretty + ' skylight', state.open ? '' : 'primary')
     );
   } else if (device === 'av') {
-    isOn = state.power;
+    on = state.power;
     title = state.power ? 'AV — ' + (state.current_source || 'on') : 'AV';
     detail = state.power ? ('vol ' + (state.volume ?? '—')) : 'off';
     controls = stopProp(state.power
-      ? '<button class="btn-icon" onclick="quickSend(' + jstr('turn off the '+pretty) + ')">off</button>'
-      : '<button class="btn-icon primary" onclick="quickSend(' + jstr('watch apple tv in the '+pretty) + ')">ATV</button>');
-  } else if (device.startsWith('hvac_') || device === 'climate') {
-    const cur = state.current_f, heat = state.heat_setpoint_f, cool = state.cool_setpoint_f;
-    isOn = (state.hvac_state === 'cooling' || state.hvac_state === 'heating');
-    title = (device.replace('hvac_','').replace(/_/g,' ')) + ' HVAC';
-    detail = cur != null ? (cur + '° (' + (heat ?? '—') + '/' + (cool ?? '—') + ' ' + (state.mode||'?') + ')') : (state.mode || '—');
-    controls = stopProp(
-      '<button class="btn-icon" onclick="quickSend(' + jstr('lower the '+pretty+' temperature by 2') + ')">−</button>' +
-      '<button class="btn-icon" onclick="quickSend(' + jstr('raise the '+pretty+' temperature by 2') + ')">+</button>'
-    );
+      ? iconBtn('off', 'turn off the ' + pretty)
+      : iconBtn('ATV', 'watch apple tv in the ' + pretty, 'primary'));
   } else if (device === 'hot_tub' || device === 'pool') {
-    isOn = state.mode === 'heat' || state.heater_on;
+    on = state.mode === 'heat' || state.heater_on === true;
     const name = device === 'hot_tub' ? 'hot tub' : 'pool';
     title = device === 'hot_tub' ? 'Hot tub' : 'Pool';
-    detail = state.current_f != null ? (state.current_f + '° → ' + (state.target_f ?? '—') + '° · ' + (state.mode || 'off')) : (state.mode || '—');
+    detail = state.current_f != null ? (state.current_f + '° → ' + (state.target_f ?? '—') + '°') : (state.mode || '—');
     controls = stopProp(
-      '<button class="btn-icon" onclick="quickSend(' + jstr('turn the '+name+' off') + ')">off</button>' +
-      '<button class="btn-icon primary" onclick="quickSend(' + jstr('warm the '+name+' to ' + (device==='hot_tub'?102:85)) + ')">warm</button>'
+      iconBtn('off', 'turn the ' + name + ' off') +
+      iconBtn('warm', 'warm the ' + name + ' to ' + (device === 'hot_tub' ? 102 : 85), on ? '' : 'primary')
     );
   } else if (device === 'tv') {
-    isOn = state.on;
+    on = state.on;
     title = 'TV';
     detail = state.on ? (state.app || state.input || 'on') : 'off';
     controls = stopProp(state.on
-      ? '<button class="btn-icon" onclick="quickSend(' + jstr('turn off the '+pretty+' tv') + ')">off</button>'
-      : '<button class="btn-icon primary" onclick="quickSend(' + jstr('turn on the '+pretty+' tv') + ')">on</button>');
+      ? iconBtn('off', 'turn off the ' + pretty + ' tv')
+      : iconBtn('on', 'turn on the ' + pretty + ' tv', 'primary'));
+  } else if (device.startsWith('hvac_') || device === 'climate') {
+    // shouldn't show here normally (HVAC rooms go to Climate card)
+    return '';
   }
 
-  const cls = (offline ? 'offline' : (isOn ? 'on' : ''));
-  const badge = pending ? ' <span class="pending">[pending]</span>' : (offline ? ' <span class="offline">[offline]</span>' : '');
+  const offlineBadge = offline ? '<span class="offline-dot" title="offline"></span>' : '';
   return '<div class="device-row">' +
-    '<div class="device-icon">' + icon + '</div>' +
+    '<div class="device-icon ' + (on ? 'on' : '') + '" aria-hidden="true">' + icon + '</div>' +
     '<div class="device-meta">' +
-      '<div class="device-title ' + cls + '">' + esc(title) + badge + '</div>' +
+      '<div class="device-title ' + (on ? 'on' : '') + '">' + esc(title) + offlineBadge + '</div>' +
       '<div class="device-detail">' + esc(detail) + '</div>' +
     '</div>' +
     '<div class="device-controls">' + controls + '</div>' +
   '</div>';
 }
+function iconBtn(label, cmd, cls = '') {
+  return '<button class="btn-icon ' + cls + '" onclick="quickSend(' + jstr(cmd) + ')">' + esc(label) + '</button>';
+}
 const stopProp = (html) => html.replaceAll('onclick="', 'onclick="event.stopPropagation();');
 
-// ----- room detail sheet -----
+function renderRooms() {
+  if (!HOUSE) return;
+  const slugs = Object.keys(HOUSE.rooms).filter(s => !isHvacOnly(s));
+  const groups = { entertainment: [], comfort: [], lighting: [] };
+  const hidden = { entertainment: [], comfort: [], lighting: [] };
+  for (const slug of slugs) {
+    const g = roomGroup(slug);
+    if (!g) continue;
+    const active = isRoomActive(slug);
+    const online = isRoomOnline(slug);
+    if (active || online) groups[g].push(slug);
+    else hidden[g].push(slug);
+  }
+  // Active rooms first within each group
+  for (const g of Object.keys(groups)) {
+    groups[g].sort((a, b) => {
+      const aa = isRoomActive(a) ? 0 : 1;
+      const bb = isRoomActive(b) ? 0 : 1;
+      if (aa !== bb) return aa - bb;
+      return HOUSE.rooms[a].label.localeCompare(HOUSE.rooms[b].label);
+    });
+  }
+  const render = (slugs, hiddenSlugs, container) => {
+    const cards = slugs.map(renderRoomCard).filter(Boolean).join('');
+    let html = cards;
+    if (hiddenSlugs.length) {
+      html += '<button class="more-rooms" onclick="this.previousElementSibling.parentElement.querySelector(\'.more-rooms-extra\')?.classList.toggle(\'hidden\') || (this.parentElement.insertAdjacentHTML(\'beforeend\', \'<div class=\\\'more-rooms-extra\\\'></div>\'), this.parentElement.querySelector(\'.more-rooms-extra\').innerHTML = window.__renderHiddenRooms(' + jstr(hiddenSlugs) + '))">+ ' + hiddenSlugs.length + ' more room' + (hiddenSlugs.length===1?'':'s') + '</button>';
+    }
+    container.innerHTML = html || '<div class="empty">no rooms in this group</div>';
+  };
+  render(groups.comfort, hidden.comfort, $('comfort-rooms'));
+  render(groups.entertainment, hidden.entertainment, $('entertainment-rooms'));
+  render(groups.lighting, hidden.lighting, $('lighting-rooms'));
+}
+window.__renderHiddenRooms = (slugs) => slugs.map(renderRoomCard).filter(Boolean).join('');
+
+// ===== SHEET =====
 window.openSheet = (slug) => {
   CURRENT_SHEET = slug;
   renderSheet();
@@ -769,195 +1098,240 @@ window.closeSheet = () => {
   $('sheet-backdrop').classList.remove('show');
 };
 $('sheet-backdrop').addEventListener('click', closeSheet);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && CURRENT_SHEET) closeSheet(); });
 
 function renderSheet() {
   if (!CURRENT_SHEET || !HOUSE) return;
   const room = HOUSE.rooms[CURRENT_SHEET];
   if (!room) { closeSheet(); return; }
-  const state = WORLD[CURRENT_SHEET] || {};
-  const pretty = CURRENT_SHEET.replace(/_/g, ' ');
-
-  const blocks = room.devices.map(d => renderSheetBlock(CURRENT_SHEET, d, state[d], pretty)).filter(Boolean).join('');
+  const blocks = room.devices.map(d => renderSheetBlock(CURRENT_SHEET, d, getState(CURRENT_SHEET, d))).filter(Boolean).join('');
   $('sheet').innerHTML =
+    '<div class="sheet-handle"></div>' +
     '<div class="sheet-head">' +
-      '<h2 class="sheet-title">' + esc(room.label) + '</h2>' +
-      '<button class="sheet-close" onclick="closeSheet()">×</button>' +
+      '<h2 class="sheet-title" id="sheet-title">' + esc(room.label) + '</h2>' +
+      '<button class="sheet-close" onclick="closeSheet()" aria-label="Close">×</button>' +
     '</div>' +
     (blocks || '<div class="empty">no controllable devices in this room</div>');
 }
 
-function renderSheetBlock(slug, device, msg, pretty) {
+function renderSheetBlock(slug, device, msg) {
   const state = msg?.state ?? {};
   const icon = iconFor(device);
-  let title = device.replace(/_/g, ' ');
-  let body = '';
+  const pretty = HOUSE.rooms[slug].label.toLowerCase();
+  let body = '', title = device.replace(/_/g, ' ');
 
   if (device === 'lights') {
+    title = 'Lights';
     const b = state.brightness ?? 0;
     body =
       '<div class="slider-row"><label>Brightness</label>' +
-      '<input type="range" min="0" max="100" value="' + b + '" oninput="document.getElementById(\'lb-' + slug + '\').textContent = this.value + \'%\'" onchange="setLightSlider(' + jstr(slug) + ', this.value)" />' +
+      '<input type="range" min="0" max="100" value="' + b + '" oninput="document.getElementById(\'lb-' + slug + '\').textContent = this.value + \'%\'" onchange="setLightSlider(' + jstr(slug) + ', this.value)" aria-label="brightness" />' +
       '<span class="val" id="lb-' + slug + '">' + b + '%</span></div>' +
-      '<div class="slider-row" style="gap:6px"><label></label>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('turn off the ' + pretty + ' lights') + ')">Off</button>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('dim the ' + pretty + ' lights to 30') + ')">30%</button>' +
-      '<button class="source-btn primary" style="flex:1" onclick="quickSend(' + jstr('turn on the ' + pretty + ' lights') + ')">On</button>' +
+      '<div class="source-grid">' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('turn off the ' + pretty + ' lights') + ')">Off</button>' +
+        '<button class="pill-btn primary" onclick="quickSend(' + jstr('turn on the ' + pretty + ' lights') + ')">On</button>' +
       '</div>';
   } else if (device === 'music') {
+    title = 'Music';
     const v = state.volume ?? 25;
     const playing = state.playState === 'PLAYING';
     body =
-      '<div class="device-detail">' + esc(state.track ? ((state.artist ? state.artist + ' · ' : '') + state.track) : 'nothing playing') + '</div>' +
+      '<div class="device-detail" style="font-family:var(--font-ui); font-size:13px; color:var(--text-secondary); margin-bottom: var(--sp-3)">' + esc(state.track ? ((state.artist ? state.artist + ' · ' : '') + state.track) : 'nothing playing') + '</div>' +
       '<div class="slider-row"><label>Volume</label>' +
-      '<input type="range" min="0" max="100" value="' + v + '" oninput="document.getElementById(\'mv-' + slug + '\').textContent = this.value" onchange="setMusicVolume(' + jstr(slug) + ', this.value)" />' +
+      '<input type="range" min="0" max="100" value="' + v + '" oninput="document.getElementById(\'mv-' + slug + '\').textContent = this.value" onchange="setMusicVolume(' + jstr(slug) + ', this.value)" aria-label="volume" />' +
       '<span class="val" id="mv-' + slug + '">' + v + '</span></div>' +
-      '<div class="slider-row" style="gap:6px"><label></label>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('previous track in the ' + pretty) + ')">⏮</button>' +
-      '<button class="source-btn primary" style="flex:1" onclick="quickSend(' + jstr((playing?'pause':'resume')+' music in the '+pretty) + ')">' + (playing?'Pause':'Play') + '</button>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('next track in the ' + pretty) + ')">⏭</button>' +
+      '<div class="source-grid" style="grid-template-columns: repeat(3, 1fr)">' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('previous track in the ' + pretty) + ')">⏮</button>' +
+        '<button class="pill-btn primary" onclick="quickSend(' + jstr((playing?'pause':'resume')+' music in the '+pretty) + ')">' + (playing?'Pause':'Play') + '</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('next track in the ' + pretty) + ')">⏭</button>' +
       '</div>';
   } else if (device === 'skylight') {
+    title = 'Skylight';
     body =
-      '<div class="device-detail">' + (state.open ? 'open' : 'closed') + '</div>' +
-      '<div class="slider-row" style="gap:6px"><label></label>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('close the ' + pretty + ' skylight') + ')">Close</button>' +
-      '<button class="source-btn primary" style="flex:1" onclick="quickSend(' + jstr('open the ' + pretty + ' skylight') + ')">Open</button>' +
+      '<div class="device-detail" style="font-family:var(--font-ui); font-size:13px; margin-bottom: var(--sp-3)">' + (state.open ? 'open' : 'closed') + '</div>' +
+      '<div class="source-grid">' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('close the ' + pretty + ' skylight') + ')">Close</button>' +
+        '<button class="pill-btn primary" onclick="quickSend(' + jstr('open the ' + pretty + ' skylight') + ')">Open</button>' +
       '</div>';
   } else if (device === 'av') {
-    const sources = Object.entries(HOUSE.rooms[slug]?.devices ?? {});
-    // We don't have sources in /house yet — but include the most common buttons.
+    title = 'AV';
     body =
-      '<div class="device-detail">' + (state.power ? 'on · ' + (state.current_source || 'unknown') + ' · vol ' + (state.volume ?? '—') : 'off') + '</div>' +
+      '<div class="device-detail" style="font-family:var(--font-ui); font-size:13px; margin-bottom: var(--sp-3)">' + (state.power ? 'on · ' + (state.current_source || '—') + ' · vol ' + (state.volume ?? '—') : 'off') + '</div>' +
       '<div class="source-grid">' +
-        '<button class="source-btn" onclick="quickSend(' + jstr('watch apple tv in the ' + pretty) + ')">Apple TV</button>' +
-        '<button class="source-btn" onclick="quickSend(' + jstr('watch xfinity in the ' + pretty) + ')">Xfinity</button>' +
-        '<button class="source-btn" onclick="quickSend(' + jstr('watch UHD in the ' + pretty) + ')">UHD</button>' +
-        '<button class="source-btn" onclick="quickSend(' + jstr('turn off the ' + pretty) + ')">Off</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('watch apple tv in the ' + pretty) + ')">Apple TV</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('watch xfinity in the ' + pretty) + ')">Xfinity</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('watch UHD in the ' + pretty) + ')">UHD</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('turn off the ' + pretty) + ')">Off</button>' +
       '</div>' +
       (state.power ? '<div class="slider-row"><label>Volume</label>' +
-        '<input type="range" min="0" max="100" value="' + (state.volume ?? 30) + '" onchange="setAvVolume(' + jstr(slug) + ', this.value)" />' +
+        '<input type="range" min="0" max="100" value="' + (state.volume ?? 30) + '" onchange="setAvVolume(' + jstr(slug) + ', this.value)" aria-label="volume" />' +
         '<span class="val">' + (state.volume ?? 30) + '</span></div>' : '');
   } else if (device.startsWith('hvac_') || device === 'climate') {
+    title = 'Climate';
     const heat = state.heat_setpoint_f ?? 68;
     const cool = state.cool_setpoint_f ?? 75;
     body =
-      '<div class="device-detail">' + (state.current_f != null ? state.current_f + '° · mode ' + (state.mode || 'off') + ' · ' + (state.hvac_state || 'idle') : '—') + '</div>' +
+      '<div class="device-detail" style="font-family:var(--font-ui); font-size:13px; margin-bottom: var(--sp-3)">' + (state.current_f != null ? state.current_f + '° · ' + (state.mode || 'off') + ' · ' + (state.hvac_state || 'idle') : '—') + '</div>' +
       '<div class="slider-row"><label>Heat</label>' +
-      '<input type="range" min="55" max="85" value="' + heat + '" oninput="document.getElementById(\'h-' + slug + '\').textContent = this.value + \'°\'" onchange="setHeatSetpoint(' + jstr(slug) + ', this.value)" />' +
+      '<input type="range" min="55" max="85" value="' + heat + '" oninput="document.getElementById(\'h-' + slug + '\').textContent = this.value + \'°\'" onchange="setHeatSetpoint(' + jstr(slug) + ', this.value)" aria-label="heat setpoint" />' +
       '<span class="val" id="h-' + slug + '">' + heat + '°</span></div>' +
       '<div class="slider-row"><label>Cool</label>' +
-      '<input type="range" min="60" max="90" value="' + cool + '" oninput="document.getElementById(\'c-' + slug + '\').textContent = this.value + \'°\'" onchange="setCoolSetpoint(' + jstr(slug) + ', this.value)" />' +
+      '<input type="range" min="60" max="90" value="' + cool + '" oninput="document.getElementById(\'c-' + slug + '\').textContent = this.value + \'°\'" onchange="setCoolSetpoint(' + jstr(slug) + ', this.value)" aria-label="cool setpoint" />' +
       '<span class="val" id="c-' + slug + '">' + cool + '°</span></div>' +
-      '<div class="slider-row" style="gap:6px"><label></label>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('set ' + pretty + ' to heat mode') + ')">Heat</button>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('set ' + pretty + ' to cool mode') + ')">Cool</button>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('set ' + pretty + ' to auto mode') + ')">Auto</button>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('turn off ' + pretty) + ')">Off</button>' +
+      '<div class="source-grid" style="grid-template-columns: repeat(4, 1fr)">' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('set ' + pretty + ' to heat mode') + ')">Heat</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('set ' + pretty + ' to cool mode') + ')">Cool</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('set ' + pretty + ' to auto mode') + ')">Auto</button>' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('turn off ' + pretty) + ')">Off</button>' +
       '</div>';
   } else if (device === 'hot_tub' || device === 'pool') {
-    const t = state.target_f ?? 100;
+    title = device === 'hot_tub' ? 'Hot tub' : 'Pool';
+    const t = state.target_f ?? (device === 'hot_tub' ? 102 : 85);
     const name = device === 'hot_tub' ? 'hot tub' : 'pool';
     body =
-      '<div class="device-detail">' + (state.current_f != null ? state.current_f + '° → ' + (state.target_f ?? '—') + '° · ' + (state.mode || 'off') : '—') + '</div>' +
+      '<div class="device-detail" style="font-family:var(--font-ui); font-size:13px; margin-bottom: var(--sp-3)">' + (state.current_f != null ? state.current_f + '° → ' + (state.target_f ?? '—') + '°' : (state.mode || '—')) + '</div>' +
       '<div class="slider-row"><label>Target</label>' +
-      '<input type="range" min="60" max="' + (device==='hot_tub'?104:90) + '" value="' + t + '" oninput="document.getElementById(\'t-' + slug + '\').textContent = this.value + \'°\'" onchange="quickSend(\'warm the ' + name + ' to \' + this.value)" />' +
+      '<input type="range" min="60" max="' + (device==='hot_tub'?104:90) + '" value="' + t + '" oninput="document.getElementById(\'t-' + slug + '\').textContent = this.value + \'°\'" onchange="quickSend(\'warm the ' + name + ' to \' + this.value)" aria-label="target temperature" />' +
       '<span class="val" id="t-' + slug + '">' + t + '°</span></div>' +
-      '<div class="slider-row" style="gap:6px"><label></label>' +
-      '<button class="source-btn" style="flex:1" onclick="quickSend(' + jstr('turn the ' + name + ' off') + ')">Off</button>' +
-      '<button class="source-btn primary" style="flex:1" onclick="quickSend(' + jstr('warm the ' + name + ' to ' + t) + ')">Heat</button>' +
+      '<div class="source-grid">' +
+        '<button class="pill-btn" onclick="quickSend(' + jstr('turn the ' + name + ' off') + ')">Off</button>' +
+        '<button class="pill-btn primary" onclick="quickSend(' + jstr('warm the ' + name + ' to ' + t) + ')">Heat</button>' +
       '</div>';
   } else {
-    body = '<div class="device-detail">' + esc(JSON.stringify(state)) + '</div>';
+    return '';
   }
 
-  return '<div class="device-detail-block">' +
-    '<div class="device-row" style="border:0;padding:0">' +
-      '<div class="device-icon">' + icon + '</div>' +
-      '<div class="device-meta"><div class="device-title">' + esc(title) + '</div></div>' +
-    '</div>' + body + '</div>';
+  return '<div class="sheet-block">' +
+    '<div class="sheet-block-head"><span aria-hidden="true">' + icon + '</span><span class="sheet-block-title">' + esc(title) + '</span></div>' +
+    body + '</div>';
 }
 
-// debounced slider commands
-const dbLight = debounce((slug, v) => quickSend('dim the ' + slug.replace(/_/g,' ') + ' lights to ' + v), 250);
-const dbMusic = debounce((slug, v) => quickSend('set ' + slug.replace(/_/g,' ') + ' music volume to ' + v), 250);
-const dbHeat = debounce((slug, v) => quickSend('set heat setpoint in the ' + slug.replace(/_/g,' ') + ' to ' + v), 250);
-const dbCool = debounce((slug, v) => quickSend('set cool setpoint in the ' + slug.replace(/_/g,' ') + ' to ' + v), 250);
-const dbAv = debounce((slug, v) => quickSend('set ' + slug.replace(/_/g,' ') + ' volume to ' + v), 250);
-window.setLightSlider = (slug, v) => dbLight(slug, v);
-window.setMusicVolume = (slug, v) => dbMusic(slug, v);
-window.setHeatSetpoint = (slug, v) => dbHeat(slug, v);
-window.setCoolSetpoint = (slug, v) => dbCool(slug, v);
-window.setAvVolume = (slug, v) => dbAv(slug, v);
+const dbLight = debounce((slug, v) => quickSend('dim the ' + HOUSE.rooms[slug].label.toLowerCase() + ' lights to ' + v), 250);
+const dbMusic = debounce((slug, v) => quickSend('set ' + HOUSE.rooms[slug].label.toLowerCase() + ' music volume to ' + v), 250);
+const dbHeat = debounce((slug, v) => quickSend('set heat setpoint in ' + HOUSE.rooms[slug].label.toLowerCase() + ' to ' + v), 250);
+const dbCool = debounce((slug, v) => quickSend('set cool setpoint in ' + HOUSE.rooms[slug].label.toLowerCase() + ' to ' + v), 250);
+const dbAv = debounce((slug, v) => quickSend('set ' + HOUSE.rooms[slug].label.toLowerCase() + ' volume to ' + v), 250);
+window.setLightSlider = (slug, v) => { applyOptimistic(slug, 'lights', { on: v > 0, brightness: +v }); dbLight(slug, v); };
+window.setMusicVolume = (slug, v) => { applyOptimistic(slug, 'music', { volume: +v }); dbMusic(slug, v); };
+window.setHeatSetpoint = (slug, v) => { const d = HOUSE.rooms[slug].devices.find(x => x.startsWith('hvac_')) || 'climate'; applyOptimistic(slug, d, { heat_setpoint_f: +v }); dbHeat(slug, v); };
+window.setCoolSetpoint = (slug, v) => { const d = HOUSE.rooms[slug].devices.find(x => x.startsWith('hvac_')) || 'climate'; applyOptimistic(slug, d, { cool_setpoint_f: +v }); dbCool(slug, v); };
+window.setAvVolume = (slug, v) => { applyOptimistic(slug, 'av', { volume: +v }); dbAv(slug, v); };
 
-// ----- schedule / events -----
-async function renderSchedule() {
-  try {
-    const r = await fetch('/schedule');
-    const { jobs } = await r.json();
-    const html = jobs.length ? jobs.map(j => {
-      const label = j.label || j.actions.map(a => a.tool).join(' + ');
-      const when = new Date(j.fireAt);
-      const local = when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-      const badge = j.recurrence
-        ? ' <span class="badge">' + esc(j.recurrence) + '</span>'
-        : (j.trigger ? ' <span class="badge">' + esc(j.trigger.kind) + (j.trigger.offsetMinutes ? (j.trigger.offsetMinutes > 0 ? '+' : '') + j.trigger.offsetMinutes + 'm' : '') + '</span>' : '');
-      return '<div class="job"><div class="job-label">' + esc(label) + badge +
-        '<div class="job-fire-at">' + esc(local) + '</div></div>' +
-        '<button class="btn-icon" title="snooze 15 min" onclick="snoozeJob(' + jstr(j.id) + ', 15)">+15</button>' +
-        '<button class="btn-icon" onclick="cancelJob(' + jstr(j.id) + ')">×</button></div>';
-    }).join('') : '<div class="empty">no pending jobs</div>';
-    $('schedule').innerHTML = html;
-    $('schedule-desk').innerHTML = html;
-  } catch {}
+// ===== ACTIVITY =====
+function translateEvent(e) {
+  const ts = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Translate raw state events into plain language
+  if (e.kind.startsWith('state:')) {
+    const path = e.kind.slice(6);
+    const [slug, device] = path.split('/');
+    const label = HOUSE?.rooms[slug]?.label || slug;
+    const s = e.payload?.state ?? {};
+    let text = null;
+    if (device === 'music') {
+      if (s.playState === 'PLAYING' || s.playing === true) text = 'music started' + (s.track ? ' · ' + s.track : '');
+      else if (s.playState === 'PAUSED_PLAYBACK' || s.playing === false) text = 'music paused';
+      else if (typeof s.volume === 'number') text = 'music volume → ' + s.volume;
+    } else if (device === 'lights') {
+      if (s.on === true) text = 'lights → ' + (s.brightness ?? '?') + '%';
+      else if (s.on === false) text = 'lights off';
+    } else if (device === 'skylight') text = s.open ? 'skylight opened' : 'skylight closed';
+    else if (device === 'av') text = s.power ? 'watching ' + (s.current_source || 'AV') : 'AV off';
+    else if (device === 'tv') text = s.on ? 'TV on' : 'TV off';
+    else if (device === 'hot_tub' || device === 'pool') text = s.target_f != null ? 'target ' + s.target_f + '°' : (s.mode || 'updated');
+    else if (device.startsWith('hvac') || device === 'climate') {
+      if (s.hvac_state === 'heating' || s.hvac_state === 'cooling') text = s.hvac_state;
+      else if (s.mode) text = 'mode → ' + s.mode;
+    }
+    if (!text) return null;
+    return { ts, room: label, text };
+  }
+  if (e.kind === 'event:schedule_fired') {
+    return { ts, room: 'Schedule', text: (e.payload?.action || 'job') + ' fired' + (e.payload?.ok === false ? ' (failed)' : '') };
+  }
+  if (e.kind === 'event:schedule_cancelled') return { ts, room: 'Schedule', text: 'job cancelled' };
+  if (e.kind === 'event:schedule_snoozed') return { ts, room: 'Schedule', text: 'snoozed ' + (e.payload?.by_minutes ?? '?') + 'm' };
+  return null;
 }
-async function renderEvents() {
+
+async function renderActivity() {
   try {
-    const r = await fetch('/events?limit=25');
-    const { events } = await r.json();
-    // toast on new schedule_fired events
+    const { events } = await (await fetch('/events?limit=40')).json();
+    // toast on new schedule_fired
     for (const e of events) {
-      const ts = new Date(e.ts).getTime();
-      if (ts > SEEN_EVENT_TS && e.kind === 'event:schedule_fired') {
-        const action = e.payload?.action || 'job';
-        toast('⏰ ' + action + ' fired' + (e.payload?.ok === false ? ' (failed)' : ''));
+      const t = new Date(e.ts).getTime();
+      if (t > LAST_EVENT_TS && e.kind === 'event:schedule_fired') {
+        toast('⏰ ' + (e.payload?.action || 'Job') + ' fired');
       }
     }
-    if (events.length) SEEN_EVENT_TS = Math.max(...events.map(e => new Date(e.ts).getTime()));
-    const html = events.length ? events.map(e => {
-      const ts = new Date(e.ts).toLocaleTimeString([], { hour12: false });
-      let payload = '';
-      const p = e.payload;
-      if (p && typeof p === 'object') {
-        const s = p.state;
-        payload = s && typeof s === 'object'
-          ? Object.entries(s).slice(0,3).map(([k,v]) => k+'='+(typeof v==='object'?JSON.stringify(v):v)).join(' ')
-          : JSON.stringify(p);
-      } else payload = String(p ?? '');
-      if (payload.length > 80) payload = payload.slice(0,77) + '…';
-      return '<div class="event"><div class="event-row"><span class="ts">' + ts + '</span><span class="kind">' + esc(e.kind) + '</span><span class="payload">' + esc(payload) + '</span></div></div>';
-    }).join('') : '<div class="empty">no events yet</div>';
-    $('events').innerHTML = html;
-    $('events-desk').innerHTML = html;
+    if (events.length) LAST_EVENT_TS = Math.max(...events.map(e => new Date(e.ts).getTime()));
+    const items = events.map(translateEvent).filter(Boolean);
+    const html = items.length ? items.map(i =>
+      '<div class="activity-item"><span class="activity-time">' + esc(i.ts) + '</span>' +
+      '<span class="activity-text"><span class="activity-room">' + esc(i.room) + '</span> · ' + esc(i.text) + '</span></div>'
+    ).join('') : '<div class="empty">no events yet</div>';
+    $('activity-feed').innerHTML = html;
+    $('rail-activity').innerHTML = items.length ? items.slice(0, 8).map(i =>
+      '<div class="rail-event"><span class="activity-time">' + esc(i.ts) + '</span> ' +
+      '<span class="activity-room">' + esc(i.room) + '</span> ' + esc(i.text) + '</div>'
+    ).join('') : '<div class="empty">no events yet</div>';
   } catch {}
+}
+
+// ===== SEARCH =====
+$('search-input')?.addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase().trim();
+  const slugs = Object.keys(HOUSE?.rooms ?? {});
+  const hits = q ? slugs.filter(s => HOUSE.rooms[s].label.toLowerCase().includes(q) || s.includes(q)) : [];
+  $('search-results').innerHTML = hits.length
+    ? hits.map(s => '<div class="search-item" onclick="openSheet(' + jstr(s) + '); switchSection(\'home\')" role="button" tabindex="0">' + esc(HOUSE.rooms[s].label) + ' <span style="color:var(--text-muted)">— ' + HOUSE.rooms[s].devices.length + ' device(s)</span></div>').join('')
+    : (q ? '<div class="empty">no matches</div>' : '');
+});
+
+// ===== RENDER ALL =====
+function renderAll() {
+  renderHero();
+  renderScenes();
+  renderClimate();
+  renderRooms();
+  if (CURRENT_SHEET) renderSheet();
 }
 
 async function refresh() {
-  try { WORLD = await (await fetch('/world')).json(); renderRooms(); if (CURRENT_SHEET) renderSheet(); } catch {}
+  try { WORLD = await (await fetch('/world')).json(); } catch {}
+  // Drop optimistic overlays for keys that now match.
+  for (const key of Object.keys(OPTIMISTIC)) {
+    const [slug, d] = key.split('/');
+    const real = WORLD[slug]?.[d]?.state ?? {};
+    const opt = OPTIMISTIC[key];
+    let allMatch = true;
+    for (const k of Object.keys(opt)) {
+      if (real[k] === undefined) { allMatch = false; break; }
+      // tolerate small numeric drift for brightness/volume/temps
+      if (typeof opt[k] === 'number' && typeof real[k] === 'number') {
+        if (Math.abs(opt[k] - real[k]) > 0.5) { allMatch = false; break; }
+      } else if (opt[k] !== real[k]) { allMatch = false; break; }
+    }
+    if (allMatch) delete OPTIMISTIC[key];
+  }
+  renderAll();
   renderSchedule();
-  renderEvents();
+  renderActivity();
 }
 
 async function init() {
   try {
     HOUSE = await (await fetch('/house')).json();
-    renderQuick();
   } catch (err) {
-    $('quick-row').innerHTML = '<span class="empty">house fetch failed</span>';
+    $('hero-status').innerHTML = '<span class="empty">house fetch failed</span>';
+    return;
   }
   refresh();
+  setInterval(refresh, 2000);
+  // Hero clock updates separately so the time stays fresh between refreshes.
+  setInterval(renderHero, 30_000);
 }
 
-// ----- pull to refresh (mobile) -----
+// ===== PTR (mobile) =====
 let ptrStart = 0, ptrPulling = false;
 window.addEventListener('touchstart', (e) => {
   if (window.scrollY === 0) { ptrStart = e.touches[0].clientY; ptrPulling = true; }
@@ -974,19 +1348,24 @@ window.addEventListener('touchend', (e) => {
   const last = e.changedTouches[0].clientY - ptrStart;
   ptrPulling = false;
   $('ptr').classList.remove('show');
-  if (last > 60) { refresh(); toast('refreshed'); }
+  if (last > 60) { refresh(); }
 });
 
 $('msg-send').addEventListener('click', sendMessage);
 $('msg-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
 
-// ----- service worker -----
+// Hidden dev mode: triple-tap the theme button to reveal metadata
+let tapTimes = [];
+$('theme-btn').addEventListener('dblclick', () => {
+  document.body.classList.toggle('dev');
+  toast(document.body.classList.contains('dev') ? 'dev mode on' : 'dev mode off');
+});
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{}));
 }
 
 init();
-setInterval(refresh, 2000);
 </script>
 </body>
 </html>`;
