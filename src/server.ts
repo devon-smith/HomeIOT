@@ -104,6 +104,22 @@ async function main() {
     return await world.snapshot();
   });
 
+  app.get("/house", async () => {
+    // Trimmed for the UI: room slugs/labels, device kinds, quick actions.
+    const rooms: Record<string, { label: string; devices: string[] }> = {};
+    for (const [slug, def] of Object.entries(house.rooms)) {
+      rooms[slug] = { label: def.label, devices: Object.keys(def.devices) };
+    }
+    return {
+      timezone: house.timezone,
+      rooms,
+      zones: house.zones,
+      quick_actions: house.preferences?.quick_actions ?? [],
+      moods: Object.keys(house.preferences?.music?.mood_playlists ?? {}),
+      favorite_playlists: house.preferences?.music?.favorite_playlists ?? [],
+    };
+  });
+
   app.get("/events", async (req) => {
     const query = req.query as { limit?: string } | undefined;
     const limit = Math.min(EVENT_RING_SIZE, Math.max(1, parseInt(query?.limit ?? "50", 10) || 50));
