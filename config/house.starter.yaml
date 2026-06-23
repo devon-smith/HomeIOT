@@ -4,12 +4,15 @@
 #
 #   cp config/house.starter.yaml config/house.yaml
 #
-# Sonos zone names below were captured live from `pnpm discover` —
-# match the Sonos app exactly, case-sensitive.
+# Sonos zones captured from `pnpm discover`; Control4 room/light IDs
+# captured from `scripts/discover-control4.py`. Match Sonos zone names
+# to the Sonos app exactly (case-sensitive).
 
 timezone: America/Los_Angeles
 
 rooms:
+  # ---- Rooms with Sonos + Control4 lights ----
+
   living_room:
     label: Living Room
     devices:
@@ -17,6 +20,11 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Living Room"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 567
+          c4_light_ids: [4554]  # Living Room Sconces
 
   kitchen:
     label: Kitchen
@@ -25,6 +33,13 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Kitchen"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 261
+          c4_light_ids: [4542, 4546, 4550, 4552, 4738, 4747]
+          # Sink Pendants, Kitchen Table Pendants, Above Cabinet,
+          # Island Pendants, Under Cabinet Lights, Blue Table
 
   family_room:
     label: Family Room
@@ -33,6 +48,11 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Family Room"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 490
+          c4_light_ids: [4540, 4749]  # Stair Pendant, Floor Lamps
 
   dining_room:
     label: Dining Room
@@ -41,6 +61,11 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Dining Room"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 362
+          c4_light_ids: [4587]  # Chandelier
 
   master_bedroom:
     label: Master Bedroom
@@ -78,6 +103,12 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Terrace"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 1207
+          c4_light_ids: [4332, 4779, 4792]
+          # Tea Lights, Terrace Stair Light, Terrace Fountains
 
   pool_house:
     label: Pool House
@@ -86,6 +117,11 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Pool House"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 39
+          c4_light_ids: [4753, 4765]  # Loft Fan, Loft Light
 
   oasis_palms:
     label: Oasis Palms
@@ -110,11 +146,156 @@ rooms:
         adapter: sonos
         config:
           sonos_zone: "Workout"
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 30
+          c4_light_ids: [3887]  # Workout Light
+
+  # ---- Control4-only rooms (no Sonos zones) ----
+
+  theater:
+    label: Theater
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 5
+          c4_light_ids: [2281, 2711, 3179, 3289, 3796, 4757, 4787]
+          # Foot Lights, Theater Sconce Keypad, Theater Stars,
+          # Rope Light, Theater Cans, Equipment Room, Scaler Socket Switch
+
+  foyer:
+    label: Foyer
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 256
+          c4_light_ids: [3185, 3187]  # Hanging Light, Entry Halogens
+
+  master_bath:
+    label: Master Bath
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 704
+          c4_light_ids: [4184, 4186, 4763]
+          # Lavatory Fan, Lavatory Light, Bath Shower
+
+  coopers_room:
+    label: Cooper's Room
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 396
+          c4_light_ids: [3548, 4595, 4710]
+          # Over Bed Lights, Cooper's Closet, Cooper's Main Lights
+
+  devons_room:
+    label: Devon's Room
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 401
+          c4_light_ids: [4601, 4603]  # Ceiling Fan, Devon's Lights
+
+  devons_bath:
+    label: Devon's Bath
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 506
+          c4_light_ids: [4665]  # Devon's Vanity Lights
+
+  blue_room:
+    label: Blue Room
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 27
+          c4_light_ids: [4589, 4593]
+          # Blue Room Lights, Downstairs Hall Lights
+
+  gallery:
+    label: Gallery
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 34
+          c4_light_ids: [4790]  # Upstairs Hall
+
+  workshop:
+    label: Workshop
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 32
+          c4_light_ids: [4581]  # Workshop
+
+  front_gate:
+    label: Front Gate
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 1213
+          c4_light_ids: [3711, 3713, 3715, 4745]
+          # Carport, Entry Lantern, Entry Overhead, Gate
+
+  pool_area:
+    label: Pool Area
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 368
+          c4_light_ids: [4773, 4775]
+          # Pool House Lanterns, Pool House Landscape
+
+  main_house_perimeter:
+    label: Main House Perimeter
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 74
+          c4_light_ids: [2233, 3889, 4597, 4611, 4613, 4617, 4619, 4621, 4777, 4781]
+          # Back Yard Landscape, Garage Shelter Cans, Cooper's Terrace,
+          # Landscape Lights 2/1, Serpentine/Back/Garage Floods,
+          # Terrace Dining Lantern, Front Yard Landscape
+
+  upstairs_rack:
+    label: Upstairs Rack
+    devices:
+      lights:
+        adapter: control4
+        config:
+          c4_room_id: 1185
+          c4_light_ids: [4751, 4755, 4759, 4761, 4767, 4769, 4771]
+          # Lamp Post, Wall Lights, Bedroom Ceiling, Bedroom Cans,
+          # Main Lights, Sconces, Pendants
+
+# Control4 scene buttons we know exist as type-7 items.
+# These fire via `run_c4_scene` with the key as the name.
+c4:
+  scenes:
+    goodnight: 4644
+    good_morning: 4646
 
 zones:
-  outdoor: [backyard, terrace, pool_house, oasis_palms, waterfall]
-  indoor: [living_room, kitchen, family_room, dining_room, master_bedroom, workout]
-  everywhere: [living_room, kitchen, family_room, dining_room, master_bedroom, backyard, terrace, pool_house, oasis_palms, waterfall, workout]
+  outdoor: [backyard, terrace, pool_house, oasis_palms, waterfall, pool_area, front_gate, main_house_perimeter]
+  indoor: [living_room, kitchen, family_room, dining_room, master_bedroom, workout, theater, foyer, master_bath, coopers_room, devons_room, devons_bath, blue_room, gallery, workshop, upstairs_rack]
+  upstairs: [master_bedroom, master_bath, kitchen, family_room, dining_room, living_room, gallery, foyer]
+  downstairs: [theater, workout, blue_room, coopers_room, devons_room, devons_bath, workshop]
+  everywhere: [living_room, kitchen, family_room, dining_room, master_bedroom, backyard, terrace, pool_house, oasis_palms, waterfall, workout, theater, foyer, master_bath, coopers_room, devons_room, devons_bath, blue_room, gallery, workshop, front_gate, pool_area, main_house_perimeter, upstairs_rack]
 
 actors:
   owner:
