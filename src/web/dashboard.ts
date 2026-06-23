@@ -147,6 +147,120 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     }
     .theme-btn:hover { background: var(--card-strong); }
 
+    /* ============ QUICK ACTIONS ROW (mobile = scroll chips, desktop = 6-up grid) ============ */
+    .quick-row {
+      display: flex; gap: 9px; padding: 18px 0 4px;
+      overflow-x: auto; scroll-snap-type: x mandatory;
+    }
+    @media (min-width: 1000px) {
+      .quick-row {
+        display: grid; grid-template-columns: repeat(6, 1fr);
+        gap: 13px; padding: 0 0 22px; overflow: visible;
+      }
+    }
+    .quick-chip {
+      flex: none; scroll-snap-align: start;
+      display: flex; align-items: center; gap: 9px;
+      padding: 11px 15px; border-radius: 14px; cursor: pointer;
+      transition: transform 120ms, filter 120ms;
+    }
+    .quick-chip:active { transform: scale(0.97); filter: brightness(1.1); }
+    .quick-chip-label { font-size: 13px; font-weight: 600; color: var(--text-hi); }
+    .quick-chip-icon { display: flex; flex-shrink: 0; }
+    /* tints */
+    .qc-action  { border: 1px solid rgba(208,125,73,0.34); background: rgba(208,125,73,0.18); }
+    .qc-action .quick-chip-icon { color: var(--accent-warm-light); }
+    .qc-warm    { border: 1px solid rgba(227,160,111,0.34); background: rgba(227,160,111,0.16); }
+    .qc-warm .quick-chip-icon { color: var(--accent-warm); }
+    .qc-morning { border: 1px solid rgba(217,168,90,0.24); background: linear-gradient(165deg, rgba(217,168,90,0.15), rgba(217,168,90,0.02)); }
+    .qc-morning .quick-chip-icon { color: var(--accent-amber-light-2); }
+    .qc-movie   { border: 1px solid rgba(168,130,196,0.22); background: rgba(168,130,196,0.13); }
+    .qc-movie .quick-chip-icon { color: var(--accent-purple-light); }
+    .qc-night   { border: 1px solid rgba(108,140,188,0.22); background: rgba(108,140,188,0.14); }
+    .qc-night .quick-chip-icon { color: var(--accent-cool-icon); }
+    .qc-jazz    { border: 1px solid rgba(208,125,73,0.22); background: rgba(208,125,73,0.12); }
+    .qc-jazz .quick-chip-icon { color: var(--accent-warm-light); }
+    .qc-generic { border: 1px solid var(--border); background: var(--card); }
+    .qc-generic .quick-chip-label { color: var(--text-secondary); }
+    .qc-more    { border: 1px dashed var(--border-strong); background: transparent; color: var(--text-faint); justify-content: center; }
+    .qc-more .quick-chip-label { color: var(--text-faint); font-weight: 500; }
+
+    /* Desktop: same colors, larger tiles with subtitle */
+    @media (min-width: 1000px) {
+      .quick-chip {
+        flex-direction: column; align-items: flex-start; justify-content: space-between;
+        padding: 16px; min-height: 120px; gap: 24px; border-radius: 18px;
+      }
+      .quick-chip-icon {
+        width: 36px; height: 36px; border-radius: 11px;
+        align-items: center; justify-content: center;
+      }
+      .qc-action  .quick-chip-icon { background: rgba(208,125,73,0.22); }
+      .qc-warm    .quick-chip-icon { background: rgba(227,160,111,0.20); }
+      .qc-morning .quick-chip-icon { background: rgba(217,168,90,0.18); }
+      .qc-movie   .quick-chip-icon { background: rgba(168,130,196,0.20); }
+      .qc-night   .quick-chip-icon { background: rgba(108,140,188,0.20); }
+      .qc-jazz    .quick-chip-icon { background: rgba(208,125,73,0.16); }
+      .qc-generic .quick-chip-icon { background: var(--card-strong); color: var(--text-secondary); }
+      .qc-action  { background: linear-gradient(165deg, rgba(208,125,73,0.20), rgba(208,125,73,0.02)); }
+      .qc-warm    { background: linear-gradient(165deg, rgba(227,160,111,0.18), rgba(232,210,176,0.02)); }
+      .qc-movie   { background: linear-gradient(165deg, rgba(146,108,168,0.16), rgba(232,210,176,0.02)); }
+      .qc-night   { background: linear-gradient(165deg, rgba(90,120,168,0.18), rgba(232,210,176,0.02)); }
+      .qc-jazz    { background: linear-gradient(165deg, rgba(208,125,73,0.12), rgba(232,210,176,0.02)); }
+      .qc-text { display: flex; flex-direction: column; gap: 2px; }
+      .quick-chip-label { font-size: 13.5px; }
+      .quick-chip-sub { font-size: 11px; color: #b6a791; }
+    }
+    .quick-chip-sub { display: none; }
+    @media (min-width: 1000px) { .quick-chip-sub { display: block; } }
+
+    /* ============ NOW PLAYING + HOT TUB CARDS ============ */
+    .now-row { padding: 16px 0 0; }
+    @media (min-width: 1000px) {
+      .now-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-bottom: 22px; padding: 0; }
+    }
+    .now-card {
+      border-radius: 20px; padding: 16px; cursor: pointer;
+      background: linear-gradient(135deg, rgba(208,125,73,0.15), rgba(232,210,176,0.02));
+      border: 1px solid rgba(208,125,73,0.22);
+      display: flex; align-items: center; gap: 13px;
+      margin-bottom: 12px;
+    }
+    @media (min-width: 1000px) { .now-card { margin-bottom: 0; padding: 18px; gap: 15px; } }
+    .now-icon {
+      width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0;
+      background: rgba(208,125,73,0.18); color: var(--accent-warm-light);
+      display: flex; align-items: center; justify-content: center;
+    }
+    @media (min-width: 1000px) { .now-icon { width: 54px; height: 54px; border-radius: 14px; } }
+    .now-meta { flex: 1; min-width: 0; }
+    .now-eye { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); }
+    .now-title { font-size: 15px; color: var(--text-hi); font-weight: 600; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .now-sub { font-size: 12px; color: var(--text-muted-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .now-play {
+      width: 42px; height: 40px; border-radius: 11px;
+      border: 1px solid var(--border-strong); background: transparent;
+      color: var(--text-secondary); display: flex; align-items: center; justify-content: center;
+    }
+    @media (min-width: 1000px) {
+      .now-play { width: 46px; height: 46px; border-radius: 13px; background: var(--card-strong); border-color: var(--border-strong); }
+    }
+    .now-vol-row { display: flex; align-items: center; gap: 11px; padding: 0 14px 0 4px; margin-top: 6px; }
+    .now-vol-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); width: 22px; text-align: right; }
+    .ht-card {
+      border-radius: 20px; padding: 18px;
+      background: var(--card); border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 15px;
+    }
+    .ht-ring { position: relative; width: 58px; height: 58px; flex-shrink: 0; }
+    .ht-ring svg { width: 58px; height: 58px; }
+    .ht-ring .ht-track { fill: none; stroke: rgba(232,210,176,0.1); stroke-width: 5; }
+    .ht-ring .ht-fill  { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 32px 32px; }
+    .ht-ring .ht-glyph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--accent-warm); }
+    .ht-info { min-width: 0; }
+    .ht-name { font-size: 14.5px; color: var(--text-hi); font-weight: 600; }
+    .ht-detail { font-family: var(--font-mono); font-size: 11px; color: var(--accent-warm); margin-top: 3px; }
+
     /* ============ STATUS HERO ============ */
     .hero { position: relative; padding: 18px 0 4px; }
     .hero-glow {
@@ -202,48 +316,11 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     }
     .sched-action:hover { background: var(--accent); color: var(--accent-on); }
 
-    /* ============ SCENES ============ */
-    .scenes-primary {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px;
-      padding: 18px 0 4px;
-    }
+    /* ============ QUICK ACTIONS LABEL (desktop only) ============ */
+    .quick-label-row { display: none; }
     @media (min-width: 1000px) {
-      .scenes-primary { grid-template-columns: repeat(6, 1fr); gap: 13px; padding: 0 0 22px; }
+      .quick-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     }
-    .scene-tile {
-      text-align: left;
-      border-radius: 20px; padding: 15px 13px 13px;
-      display: flex; flex-direction: column; gap: 18px;
-      aspect-ratio: 1/1.12;
-      transition: transform 120ms, filter 120ms;
-    }
-    @media (min-width: 1000px) {
-      .scene-tile { aspect-ratio: auto; padding: 16px; gap: 24px; border-radius: 18px; }
-    }
-    .scene-tile:active { transform: scale(0.97); filter: brightness(1.1); }
-    .scene-tile.morning { border: 1px solid rgba(217,168,90,0.22); background: linear-gradient(165deg, rgba(217,168,90,0.14), rgba(217,168,90,0.03)); }
-    .scene-tile.movie   { border: 1px solid var(--border); background: linear-gradient(165deg, rgba(146,108,168,0.16), rgba(232,210,176,0.02)); }
-    .scene-tile.night   { border: 1px solid var(--border); background: linear-gradient(165deg, rgba(90,120,168,0.18), rgba(232,210,176,0.02)); }
-    .scene-tile.generic { border: 1px solid var(--border); background: linear-gradient(165deg, rgba(208,125,73,0.10), rgba(232,210,176,0.02)); }
-    .scene-tile.more    { border: 1px dashed var(--border-strong); background: transparent; align-items: center; justify-content: center; }
-    .scene-icon {
-      width: 36px; height: 36px; border-radius: 11px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .morning .scene-icon { background: rgba(217,168,90,0.16); color: var(--accent-amber-light-2); }
-    .movie .scene-icon   { background: rgba(168,130,196,0.18); color: var(--accent-purple-light); }
-    .night .scene-icon   { background: rgba(108,140,188,0.18); color: var(--accent-cool-icon); }
-    .generic .scene-icon { background: rgba(208,125,73,0.18); color: var(--accent-warm-light); }
-    .more .scene-icon    { background: var(--card-strong); color: var(--text-secondary); }
-    .scene-label {
-      font-size: 14px; font-weight: 600; color: var(--text-hi); line-height: 1.15;
-    }
-    .scenes-secondary { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 2px; }
-    .scene-pill {
-      font-size: 12px; color: var(--text-muted-2); padding: 6px 12px;
-      border-radius: 10px; background: var(--card); border: 1px solid var(--border);
-    }
-    .scene-pill:hover { color: var(--text-body-3); background: var(--card-strong); }
 
     /* ============ NL BAR ============ */
     .nl-bar {
@@ -444,16 +521,16 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     .rail-head {
       display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
     }
-    .rail-jobs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+    .rail-jobs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px; }
     .rail-job {
-      border-radius: 14px; padding: 14px;
+      border-radius: 15px; padding: 16px;
       background: var(--card); border: 1px solid var(--border);
     }
     .rail-job.due-soon {
       background: linear-gradient(120deg, rgba(208,125,73,0.1), rgba(232,210,176,0.02));
       border-color: rgba(208,125,73,0.18);
     }
-    .rail-job-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .rail-job-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .rail-job-time { font-family: var(--font-mono); font-size: 11px; color: #c79a6a; }
     .rail-job.due-soon .rail-job-time { color: var(--accent-warm); }
     .rail-job-actions { display: flex; gap: 6px; }
@@ -464,7 +541,7 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     }
     .rail-job-action:hover { background: var(--accent); color: var(--accent-on); }
     .rail-job-x { font-size: 12px; color: var(--text-faint); padding: 4px 8px; }
-    .rail-job-label { font-size: 13.5px; color: var(--text-hi); font-weight: 500; }
+    .rail-job-label { font-size: 13.5px; color: var(--text-hi); font-weight: 500; line-height: 1.4; }
     .rail-activity { display: flex; flex-direction: column; }
     .rail-act-row {
       display: flex; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--hairline);
@@ -487,14 +564,18 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
     .activity-text { font-size: 13px; color: var(--text-secondary-2); }
 
     /* ============ SEARCH ============ */
-    .search-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .search-results {
+      display: grid; grid-template-columns: 1fr; gap: 11px; margin-top: 12px;
+    }
+    @media (min-width: 760px) { .search-results { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 1000px) { .search-results { grid-template-columns: 1fr 1fr 1fr; } }
     .search-item {
-      padding: 12px; border-radius: 14px; cursor: pointer;
-      background: var(--card); border: 1px solid var(--border);
-      font-size: 14px; color: var(--text-body);
+      padding: 15px; border-radius: 14px; cursor: pointer; text-align: left;
+      background: var(--card); border: 1px solid var(--border); width: 100%;
+      color: var(--text-body); transition: background 120ms;
     }
     .search-item:hover { background: var(--card-strong); }
-    .search-meta { font-size: 12px; color: var(--text-faint); margin-top: 3px; }
+    .search-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); margin-top: 4px; }
 
     /* ============ SHEET / SECTIONS ============ */
     .section { display: none; }
@@ -640,8 +721,10 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
 
         <div class="schedule-row hb-scroll" id="schedule-chips"></div>
 
-        <div class="scenes-primary" id="scenes-primary"></div>
-        <div class="scenes-secondary" id="scenes-secondary"></div>
+        <div class="quick-label-row">
+          <span class="section-label">Quick actions</span>
+        </div>
+        <div class="quick-row hb-scroll" id="quick-row"></div>
 
         <div class="nl-bar">
           <input class="nl-input" id="msg-input" type="text"
@@ -654,6 +737,8 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
           </button>
         </div>
         <div id="msg-response" class="response" role="status" aria-live="polite"></div>
+
+        <div class="now-row" id="now-row"></div>
 
         <div class="section-head">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0Z" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -948,27 +1033,153 @@ function renderHero() {
   $('hero-sentence').innerHTML = sentence;
 }
 
-// ===== SCENES =====
-function renderScenes() {
-  const all = HOUSE?.quick_actions ?? [];
-  const primary = []; const secondary = [];
-  for (const a of all) {
-    const key = (a.label || '').toLowerCase();
-    if (FIRST_CLASS[key]) primary.push({ ...a, kind: FIRST_CLASS[key] });
-    else secondary.push(a);
+// ===== QUICK ROW (action-first: Theater + Hot tub before scenes) =====
+function findRoomWith(devKind) {
+  for (const [slug, r] of Object.entries(HOUSE?.rooms ?? {})) {
+    if (r.devices?.includes(devKind)) return slug;
   }
-  // sort primary in spec order
-  primary.sort((a, b) => Object.keys(FIRST_CLASS).indexOf(a.label.toLowerCase()) - Object.keys(FIRST_CLASS).indexOf(b.label.toLowerCase()));
-  const tile = (a) => {
-    const icon = a.kind === 'morning' ? SVG.morning : a.kind === 'movie' ? SVG.tv : a.kind === 'night' ? SVG.night : SVG.music;
-    const lbl = a.label.replace(/Good /, 'Good<br>').replace(/Movie /, 'Movie<br>');
-    return '<button class="scene-tile ' + a.kind + '" onclick="fireScene(' + jstr(a.label) + ', ' + jstr(a.message) + ')" aria-label="' + esc(a.label) + '"><span class="scene-icon">' + icon + '</span><span class="scene-label">' + lbl + '</span></button>';
-  };
-  $('scenes-primary').innerHTML = primary.map(tile).join('');
-  $('scenes-secondary').innerHTML = secondary.map(s =>
-    '<button class="scene-pill" onclick="quickSend(' + jstr(s.message) + ')">' + esc(s.label) + '</button>'
-  ).join('');
+  return null;
 }
+function buildQuickItems() {
+  const items = [];
+
+  // 1) Theater action (if house has a theater room with av)
+  const theater = HOUSE?.rooms?.theater?.devices?.includes('av') ? 'theater' : findRoomWith('av');
+  if (theater) {
+    const av = getState(theater, 'av')?.state ?? {};
+    const label = HOUSE.rooms[theater].label;
+    if (av.power) {
+      items.push({ kind: 'action', label, sub: (av.current_source || 'AV') + ' · pause', svg: SVG.tv, msg: 'pause music in the ' + label.toLowerCase() });
+    } else {
+      items.push({ kind: 'action', label, sub: 'Turn on · AV', svg: SVG.tv, msg: 'watch apple tv in the ' + label.toLowerCase() });
+    }
+  }
+
+  // 2) Hot tub action
+  const tubRoom = findRoomWith('hot_tub');
+  if (tubRoom) {
+    const tub = getState(tubRoom, 'hot_tub')?.state ?? {};
+    const isWarming = tub.mode === 'heat' || tub.heater_on === true;
+    const target = 102;
+    if (isWarming) {
+      items.push({ kind: 'warm', label: 'Hot tub', sub: 'Stop heating', svg: SVG.hottub, msg: 'turn the hot tub off' });
+    } else {
+      items.push({ kind: 'warm', label: 'Hot tub', sub: 'Warm to ' + target + '°', svg: SVG.hottub, msg: 'warm the hot tub to ' + target });
+    }
+  }
+
+  // 3) Scenes from house preferences — Movie Night, Goodnight, Dinner Jazz, Good Morning, then others
+  const order = ['movie night', 'goodnight', 'dinner jazz', 'good morning'];
+  const scenes = (HOUSE?.quick_actions ?? []).slice().sort((a, b) => {
+    const ai = order.indexOf(a.label.toLowerCase()); const bi = order.indexOf(b.label.toLowerCase());
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+  for (const s of scenes) {
+    const key = s.label.toLowerCase();
+    const kind = key === 'good morning' ? 'morning'
+      : key === 'movie night' ? 'movie'
+      : key === 'goodnight' ? 'night'
+      : key.includes('jazz') ? 'jazz'
+      : 'generic';
+    const svg = kind === 'morning' ? SVG.morning
+      : kind === 'movie' ? SVG.tv
+      : kind === 'night' ? SVG.night
+      : kind === 'jazz' ? SVG.music
+      : SVG.music;
+    items.push({ kind, label: s.label, sub: sceneSub(key), svg, msg: s.message, isScene: true });
+  }
+  return items;
+}
+function sceneSub(key) {
+  if (key === 'movie night') return 'Theater · dim';
+  if (key === 'goodnight') return 'Everything off';
+  if (key === 'dinner jazz') return 'Kitchen · 40%';
+  if (key === 'good morning') return 'Wake the house';
+  if (key.includes('chill')) return 'Background jazz';
+  if (key.includes('lights off')) return 'All rooms off';
+  if (key.includes('pause music')) return 'Across the house';
+  return '';
+}
+function renderQuickRow() {
+  const items = buildQuickItems();
+  const html = items.map(it => {
+    const inner = '<span class="quick-chip-icon">' + it.svg + '</span>' +
+      '<span class="qc-text"><span class="quick-chip-label">' + esc(it.label) + '</span>' +
+      (it.sub ? '<span class="quick-chip-sub">' + esc(it.sub) + '</span>' : '') +
+      '</span>';
+    const handler = it.isScene
+      ? 'fireScene(' + jstr(it.label) + ', ' + jstr(it.msg) + ')'
+      : 'quickSend(' + jstr(it.msg) + ')';
+    return '<button class="quick-chip qc-' + it.kind + '" onclick="' + handler + '">' + inner + '</button>';
+  }).join('') + '<button class="quick-chip qc-more" onclick="alert(\'more scenes coming\')"><span class="qc-text"><span class="quick-chip-label">More ›</span><span class="quick-chip-sub">All scenes</span></span></button>';
+  $('quick-row').innerHTML = html;
+}
+// ===== NOW ROW (active music + hot tub) =====
+function renderNowRow() {
+  if (!HOUSE) return;
+  // Find the loudest active music room
+  let activeMusic = null;
+  let bestVol = -1;
+  for (const [slug, r] of Object.entries(HOUSE.rooms)) {
+    if (!r.devices.includes('music')) continue;
+    const st = getState(slug, 'music')?.state ?? {};
+    const playing = st.playState === 'PLAYING' || st.playing === true;
+    if (playing) {
+      const v = st.volume ?? 0;
+      if (v >= bestVol) { activeMusic = { slug, label: r.label, state: st }; bestVol = v; }
+    }
+  }
+  // Hot tub warming?
+  let hotTub = null;
+  const tubRoom = findRoomWith('hot_tub');
+  if (tubRoom) {
+    const st = getState(tubRoom, 'hot_tub')?.state ?? {};
+    const isWarming = st.mode === 'heat' || st.heater_on === true;
+    if (isWarming || st.current_f != null) {
+      hotTub = { slug: tubRoom, state: st, warming: isWarming };
+    }
+  }
+
+  let html = '';
+  if (activeMusic) {
+    const s = activeMusic.state;
+    const title = s.track || 'Music';
+    const sub = (s.artist ? s.artist + ' · ' : '') + 'vol ' + (s.volume ?? '—');
+    html += '<div class="now-card" onclick="openSheet(' + jstr(activeMusic.slug) + ')">' +
+      '<span class="now-icon">' + SVG.music + '</span>' +
+      '<div class="now-meta">' +
+        '<div class="now-eye">Now playing · ' + esc(activeMusic.label) + '</div>' +
+        '<div class="now-title">' + esc(title) + '</div>' +
+        '<div class="now-sub">' + esc(sub) + '</div>' +
+      '</div>' +
+      '<button class="now-play" onclick="event.stopPropagation(); quickSend(' + jstr('pause music in the ' + activeMusic.label.toLowerCase()) + ')">' + SVG.pause + '</button>' +
+    '</div>';
+  }
+  if (hotTub) {
+    const cur = hotTub.state.current_f ?? '—';
+    const tgt = hotTub.state.target_f ?? 102;
+    // Progress: from 70° baseline to target
+    const range = Math.max(1, tgt - 70);
+    const prog = Math.min(1, Math.max(0, ((cur === '—' ? 70 : cur) - 70) / range));
+    const C = 2 * Math.PI * 27;  // r=27 from SVG
+    const offset = Math.round(C * (1 - prog));
+    html += '<div class="ht-card" onclick="openSheet(' + jstr(hotTub.slug) + ')" style="cursor: pointer;">' +
+      '<div class="ht-ring">' +
+        '<svg viewBox="0 0 64 64">' +
+          '<circle class="ht-track" cx="32" cy="32" r="27"/>' +
+          '<circle class="ht-fill" cx="32" cy="32" r="27" stroke-dasharray="' + Math.round(C) + '" stroke-dashoffset="' + offset + '"/>' +
+        '</svg>' +
+        '<div class="ht-glyph">' + SVG.hottub + '</div>' +
+      '</div>' +
+      '<div class="ht-info">' +
+        '<div class="ht-name">Hot tub</div>' +
+        '<div class="ht-detail">' + cur + '° → ' + tgt + '°' + (hotTub.warming ? ' · warming' : '') + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  $('now-row').innerHTML = html;
+}
+
 window.fireScene = async (label, message) => {
   const snapshot = JSON.parse(JSON.stringify(WORLD));
   await send(message, { silent: true });
@@ -1373,13 +1584,22 @@ $('search-input')?.addEventListener('input', (e) => {
   const q = e.target.value.toLowerCase().trim();
   if (!HOUSE) return;
   const slugs = Object.keys(HOUSE.rooms);
-  const hits = q ? slugs.filter(s => HOUSE.rooms[s].label.toLowerCase().includes(q)) : [];
+  const hits = q ? slugs.filter(s => HOUSE.rooms[s].label.toLowerCase().includes(q) || HOUSE.rooms[s].devices.some(d => d.includes(q))) : [];
   $('search-results').innerHTML = hits.length
-    ? hits.map(s => '<div class="search-item" onclick="openSheet(' + jstr(s) + '); switchSection(\'home\')">' + esc(HOUSE.rooms[s].label) + '<div class="search-meta">' + HOUSE.rooms[s].devices.length + ' device(s)</div></div>').join('')
+    ? hits.map(s => '<button class="search-item" onclick="openSheet(' + jstr(s) + '); switchSection(\'home\')">' +
+        '<div style="font-size:14px; font-weight:600;">' + esc(HOUSE.rooms[s].label) + '</div>' +
+        '<div class="search-meta">' + HOUSE.rooms[s].devices.join(' · ') + '</div></button>').join('')
     : (q ? '<div class="empty">no matches</div>' : '');
 });
 
-function renderAll() { renderHero(); renderClimate(); renderRooms(); if (CURRENT_SHEET) renderSheet(); }
+function renderAll() {
+  renderHero();
+  renderQuickRow();
+  renderNowRow();
+  renderClimate();
+  renderRooms();
+  if (CURRENT_SHEET) renderSheet();
+}
 async function refresh() {
   try { WORLD = await (await fetch('/world')).json(); } catch {}
   // reconcile optimistic overlays
@@ -1402,7 +1622,6 @@ async function init() {
   try { HOUSE = await (await fetch('/house')).json(); }
   catch { $('hero-sentence').textContent = 'Could not load house definition.'; return; }
   const u = $('user-rooms'); if (u) u.textContent = Object.keys(HOUSE.rooms).length + ' rooms';
-  renderScenes();
   refresh();
   setInterval(refresh, 2000);
   setInterval(renderHero, 30_000);
