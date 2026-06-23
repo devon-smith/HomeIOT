@@ -100,6 +100,64 @@ async function main() {
     reply.type("text/html").send(DASHBOARD_HTML);
   });
 
+  // PWA manifest — installable to iOS / Android / desktop home screen.
+  app.get("/manifest.webmanifest", async (_req, reply) => {
+    reply.type("application/manifest+json").send({
+      name: "Home Brain",
+      short_name: "Brain",
+      description: "Local-first home control",
+      start_url: "/",
+      scope: "/",
+      display: "standalone",
+      orientation: "portrait",
+      background_color: "#15140f",
+      theme_color: "#c8623a",
+      icons: [
+        { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+        { src: "/icon-180.png", sizes: "180x180", type: "image/png" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    });
+  });
+
+  // SVG icon (used for favicon + Apple touch icon + PWA install icon).
+  // A burnt-orange disc with a stylized house glyph — kept inline so we
+  // never have to ship binary assets.
+  app.get("/icon.svg", async (_req, reply) => {
+    reply.type("image/svg+xml").header("cache-control", "public, max-age=86400").send(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#c8623a"/>
+  <path d="M120 260 L256 144 L392 260 L392 392 Q392 408 376 408 L296 408 L296 312 L216 312 L216 408 L136 408 Q120 408 120 392 Z" fill="#fff" opacity="0.95"/>
+  <circle cx="256" cy="232" r="14" fill="#c8623a"/>
+</svg>`,
+    );
+  });
+
+  // Minimal service worker — enables PWA install + offline-tolerant
+  // shell. We don't aggressively cache state endpoints; they go straight
+  // to network so live data always wins.
+  app.get("/sw.js", async (_req, reply) => {
+    reply.type("application/javascript").header("cache-control", "no-cache").send(
+      `const CACHE='home-brain-v1';
+const SHELL=['/','/manifest.webmanifest','/icon.svg'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  // Live data: network only, no cache.
+  if (['/world','/events','/schedule','/house','/message','/healthz'].some(p => url.pathname.startsWith(p))) return;
+  // Shell: cache-first.
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`,
+    );
+  });
+
   app.get("/world", async () => {
     return await world.snapshot();
   });
