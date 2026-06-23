@@ -5,8 +5,10 @@ in AWS) and a future iOS app (running anywhere) reach `/interpret` and
 the upcoming JWT-gated `/api/*` endpoints, we use **Cloudflare Tunnel**:
 a free service where a small daemon (`cloudflared`) on the mini holds an
 outbound TLS connection to Cloudflare, and Cloudflare publishes one
-hostname (e.g. `home.brain.<your-domain>`) that forwards requests through
-that tunnel.
+hostname (`home.natashabrain.com`) that forwards requests through that
+tunnel.
+
+**Domain:** `natashabrain.com` (registered ✓) · **Hostname:** `home.natashabrain.com`
 
 **Properties:**
 - No inbound port forwarding on your router (the connection is outbound from the mini)
@@ -15,15 +17,42 @@ that tunnel.
 - Optional **Cloudflare Access** service token in front for an extra gate
 - Free tier covers personal use; ~unlimited bandwidth at this scale
 
-## One-time setup
+---
 
-### Step 1 — Register a domain at Cloudflare (~$10/yr)
+## Fast path — one script (recommended)
 
-1. Sign in at https://dash.cloudflare.com (free account, no credit card to start).
-2. **Domain Registration → Register Domains.** Search and buy something
-   short — e.g. `yourname.house`, `homebrain.app`, etc. Use Cloudflare
-   Registrar so DNS + tunnel are in one place.
-3. Wait ~5-10 min for the domain to activate.
+On the **Mac mini** (it needs a browser for the one-time login):
+
+```bash
+cd ~/code/HomeIOT
+git pull
+scripts/setup-tunnel.sh                 # uses natashabrain.com / home.natashabrain.com
+```
+
+The script is idempotent and does steps 2–6 below automatically: installs
+`cloudflared`, logs in, creates the `home-brain` tunnel, routes DNS, writes
+`~/.cloudflared/config.yml`, and generates `HB_HMAC_SECRET` into `.env` if
+it's still blank (printing it so you can paste the same value into the Alexa
+Lambda). It then prints copy-paste test commands.
+
+Install it as an always-on service in the same run:
+
+```bash
+INSTALL_SERVICE=1 scripts/setup-tunnel.sh
+```
+
+Want a different subdomain? `scripts/setup-tunnel.sh natashabrain.com brain.natashabrain.com`.
+
+The manual steps below are the fallback / reference if you'd rather do it by hand.
+
+---
+
+## Manual setup
+
+### Step 1 — Register a domain at Cloudflare (~$10/yr) — ✓ done
+
+`natashabrain.com` is registered on Cloudflare Registrar, so DNS + tunnel
+live in one place. Nothing more to do here.
 
 ### Step 2 — Install cloudflared on the mini
 
@@ -38,7 +67,7 @@ cloudflared --version    # confirm install
 cloudflared tunnel login
 ```
 
-This opens a browser → log into Cloudflare → pick your domain → click
+This opens a browser → log into Cloudflare → pick `natashabrain.com` → click
 Authorize. cloudflared saves `cert.pem` to `~/.cloudflared/`.
 
 ### Step 4 — Create the tunnel
@@ -49,7 +78,7 @@ cloudflared tunnel create home-brain
 
 Returns:
 ```
-Tunnel credentials written to /Users/openclaw/.cloudflared/<UUID>.json.
+Tunnel credentials written to ~/.cloudflared/<UUID>.json.
 Created tunnel home-brain with id <UUID>
 ```
 
@@ -58,7 +87,7 @@ Note the **UUID** — you'll reference it next.
 ### Step 5 — Route DNS
 
 ```bash
-cloudflared tunnel route dns home-brain home.brain.<your-domain>
+cloudflared tunnel route dns home-brain home.natashabrain.com
 ```
 
 This creates a CNAME on your Cloudflare DNS pointing the hostname at the
@@ -70,17 +99,17 @@ Create `~/.cloudflared/config.yml`:
 
 ```yaml
 tunnel: <UUID-from-step-4>
-credentials-file: /Users/openclaw/.cloudflared/<UUID>.json
+credentials-file: /Users/<you>/.cloudflared/<UUID>.json
 
 ingress:
-  # Voice surface (Alexa / Siri).
-  - hostname: home.brain.<your-domain>
-    path: /interpret
+  # Voice surface (Alexa / Siri) — the ONLY path exposed.
+  - hostname: home.natashabrain.com
+    path: "^/interpret/?$"
     service: http://localhost:3000
 
-  # Future: iOS app API (JWT-gated). Uncomment when P1b-P6 land.
-  # - hostname: home.brain.<your-domain>
-  #   path: /api/*
+  # Future: iOS app API (JWT-gated). Uncomment when P1b–P6 land.
+  # - hostname: home.natashabrain.com
+  #   path: "^/api/"
   #   service: http://localhost:3000
 
   # Catch-all: refuse everything else at the tunnel — never reaches the brain.
@@ -94,7 +123,7 @@ cloudflared tunnel run home-brain
 # leave running in a terminal
 
 # in another terminal, on any machine:
-curl -i https://home.brain.<your-domain>/healthz
+curl -i https://home.natashabrain.com/healthz
 # expect: 404 (path not in ingress list — exactly what we want)
 
 # Now an authenticated /interpret call:
@@ -103,7 +132,7 @@ TS=$(date +%s000)
 REQ="test-$(uuidgen)"
 TEXT="turn off the kitchen lights"
 SIG=$(printf "%s" "$TS.$REQ.$TEXT" | openssl dgst -sha256 -hmac "$SECRET" -hex | awk '{print $NF}')
-curl -X POST https://home.brain.<your-domain>/interpret \
+curl -X POST https://home.natashabrain.com/interpret \
   -H "Content-Type: application/json" \
   -H "X-HB-Timestamp: $TS" \
   -H "X-HB-Signature: $SIG" \
@@ -130,7 +159,7 @@ This adds a second auth layer in front of HMAC: requests without the
 service token are bounced by Cloudflare before they ever reach the mini.
 
 1. https://one.dash.cloudflare.com → **Access → Applications → Add an application → Self-hosted.**
-2. Application name: `Home Brain`. Domain: `home.brain.<your-domain>`,
+2. Application name: `Home Brain`. Domain: `home.natashabrain.com`,
    path: `/interpret`.
 3. Add a policy:
    - Action: **Service Auth** (not "Allow" or "Block").
@@ -164,7 +193,7 @@ cloudflared tunnel info home-brain
 | Cloudflare Tunnel | Free |
 | Cloudflare Access (service tokens) | Free up to 50 users |
 | Cloudflare DNS | Free |
-| **Domain registration** | ~$10/yr |
+| **Domain registration** (`natashabrain.com`) | ~$10/yr |
 | Alexa-hosted Lambda | Free |
 
 Total ongoing: **~$10/yr** for the domain.

@@ -23,7 +23,7 @@ alexa-skill/
 
 1. **The brain's `/interpret` endpoint must be reachable from AWS.** Two ways:
    - **Production:** [Cloudflare Tunnel](../docs/CLOUDFLARE_TUNNEL.md) exposes
-     `https://home.brain.<your-domain>/interpret` from the Mac mini.
+     `https://home.natashabrain.com/interpret` from the Mac mini.
    - **Dev:** `ngrok http 3000` while iterating — the URL changes each
      session; fine for testing.
 2. **HB_HMAC_SECRET set in the brain's `.env`.** Generate with
@@ -48,7 +48,7 @@ alexa-skill/
      with `alexa-skill/lambda/package.json`. Click **Save** then **Deploy**.
 6. **Code → Environment variables** — add:
    ```
-   HOME_BRAIN_URL              https://home.brain.<yourdomain>/interpret
+   HOME_BRAIN_URL              https://home.natashabrain.com/interpret
    HB_HMAC_SECRET              <same 32-byte hex as the brain>
    CF_ACCESS_CLIENT_ID         <optional, if you enable Cloudflare Access>
    CF_ACCESS_CLIENT_SECRET     <optional>

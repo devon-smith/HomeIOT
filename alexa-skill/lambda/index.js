@@ -8,7 +8,7 @@
  *   async ack, or an error. We speak whatever we get back.
  *
  * Env vars (set in Alexa-hosted Lambda settings — Skill > Code > Settings):
- *   HOME_BRAIN_URL              https://home.brain.<yourdomain>.com/interpret
+ *   HOME_BRAIN_URL              https://home.natashabrain.com/interpret
  *   HB_HMAC_SECRET              same 32-byte hex as the brain's .env
  *   CF_ACCESS_CLIENT_ID         (optional) Cloudflare Access service token id
  *   CF_ACCESS_CLIENT_SECRET     (optional) Cloudflare Access service token secret
