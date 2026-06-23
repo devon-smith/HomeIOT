@@ -1,0 +1,49 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "Home Brain",
+          "summary": "Natural-language control for the home — lights, music, climate, scenes, schedules.",
+          "description": "Speak any home-control request — 'turn off the kitchen lights', 'play smooth jazz in the family room at 25', 'warm the hot tub to 102', 'movie night in the theater'. The skill forwards your words to your local Home Brain instance (running on a Mac mini at your home) which interprets and executes them across Sonos, Control4, iAquaLink, and other adapters.",
+          "examplePhrases": [
+            "Alexa, ask Home Brain to turn off the kitchen lights",
+            "Alexa, ask Home Brain to play smooth jazz in the family room",
+            "Alexa, ask Home Brain to warm the hot tub to 102"
+          ],
+          "keywords": ["smart home", "home automation", "lights", "music", "climate"],
+          "smallIconUri": "",
+          "largeIconUri": ""
+        }
+      },
+      "isAvailableWorldwide": false,
+      "testingInstructions": "Private skill for owner's household. Brain instance is reachable via Cloudflare Tunnel; service token gating prevents unauthorized access.",
+      "category": "SMART_HOME",
+      "distributionCountries": ["US"]
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "arn:aws:lambda:us-east-1:CHANGE:function:CHANGE",
+          "sourceDir": "lambda"
+        },
+        "interfaces": []
+      }
+    },
+    "manifestVersion": "1.0",
+    "permissions": [],
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "usesPersonalInfo": false,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "containsAds": false,
+      "locales": {
+        "en-US": {
+          "privacyPolicyUrl": "",
+          "termsOfUseUrl": ""
+        }
+      }
+    }
+  }
+}

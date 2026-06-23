@@ -1,0 +1,11 @@
+{
+  "name": "home-brain-alexa",
+  "version": "0.1.0",
+  "description": "Alexa Custom Skill backend that forwards utterances to the Home Brain /interpret endpoint",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-model": "^1.86.0"
+  }
+}
