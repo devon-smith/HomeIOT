@@ -195,6 +195,17 @@ export class ClaudePlanner implements Planner {
         lines.push(`- ${zslug}: ${[...members].sort().join(", ")}`);
       }
     }
+    if (this.deps.house.hvac_zones && Object.keys(this.deps.house.hvac_zones).length) {
+      lines.push("", "## HVAC zones");
+      lines.push(
+        "When the user asks about temperature/HVAC for a specific room, call set_climate with the matching `thermostat_device` below. Example: 'set the master bedroom to 70' → set_climate({zone: 'hvac_upstairs', target_f: 70}).",
+      );
+      for (const [zslug, zdef] of Object.entries(this.deps.house.hvac_zones)) {
+        lines.push(
+          `- ${zslug} → ${zdef.thermostat_device} → conditions: ${[...zdef.rooms].sort().join(", ")}`,
+        );
+      }
+    }
     const sceneEntries = Object.entries(this.deps.scenes).sort(([a], [b]) => a.localeCompare(b));
     if (sceneEntries.length) {
       lines.push("", "## Brain-owned scenes (invoke with run_scene)");

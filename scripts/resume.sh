@@ -23,12 +23,14 @@ PULL=1
 ATTACH=1
 SONOS_MODE=real
 IAQUALINK_MODE=real
+CONTROL4_MODE=real
 
 for arg in "$@"; do
   case "$arg" in
     --no-pull)   PULL=0 ;;
     --no-attach) ATTACH=0 ;;
-    --all-mock)  SONOS_MODE=mock; IAQUALINK_MODE=mock ;;
+    --all-mock)  SONOS_MODE=mock; IAQUALINK_MODE=mock; CONTROL4_MODE=mock ;;
+    --c4-mock)   CONTROL4_MODE=mock ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
@@ -51,8 +53,8 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   tmux kill-session -t "$SESSION"
 fi
 
-echo "==> starting brain (sonos=$SONOS_MODE iaqualink=$IAQUALINK_MODE, c4/tuya/tv=mock)"
-SONOS_MODE="$SONOS_MODE" IAQUALINK_MODE="$IAQUALINK_MODE" ./scripts/run-all.sh
+echo "==> starting brain (sonos=$SONOS_MODE iaqualink=$IAQUALINK_MODE control4=$CONTROL4_MODE, tuya/tv=mock)"
+SONOS_MODE="$SONOS_MODE" IAQUALINK_MODE="$IAQUALINK_MODE" CONTROL4_MODE="$CONTROL4_MODE" ./scripts/run-all.sh
 
 echo
 echo "ready. dashboard: http://opens-mac-mini:3000/  (or http://localhost:3000)"

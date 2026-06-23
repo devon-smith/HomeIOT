@@ -2,6 +2,7 @@ import { type ToolRegistry } from "../registry.js";
 import { setMusic } from "./set_music.js";
 import { setLights } from "./set_lights.js";
 import { setClimate } from "./set_climate.js";
+import { setSkylight } from "./set_skylight.js";
 import { setVideo } from "./set_video.js";
 import { setWaterFeature } from "./set_water_feature.js";
 import { queryState } from "./query_state.js";
@@ -14,6 +15,7 @@ export function registerTools(registry: ToolRegistry): void {
   registry.register(setMusic);
   registry.register(setLights);
   registry.register(setClimate);
+  registry.register(setSkylight);
   registry.register(setVideo);
   registry.register(setWaterFeature);
   registry.register(queryState);

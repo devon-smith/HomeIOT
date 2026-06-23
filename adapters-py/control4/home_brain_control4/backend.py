@@ -3,7 +3,6 @@
 Two implementations:
   - MockBackend: in-memory simulator for sandbox testing and CI.
   - PyControl4Backend: real implementation using the `pyControl4` library.
-    Stubbed for now; fill in on the Mac mini when C4 access is available.
 """
 
 from __future__ import annotations
@@ -17,6 +16,22 @@ class LightState:
     on: bool = False
     brightness: int = 0  # 0–100
     scene: str | None = None
+    online: bool = True
+
+
+@dataclass
+class ClimateState:
+    current_f: float | None = None
+    heat_setpoint_f: float | None = None
+    cool_setpoint_f: float | None = None
+    mode: str = "off"  # heat | cool | auto | off
+    hvac_state: str = "idle"  # idle | heating | cooling | fan
+    online: bool = True
+
+
+@dataclass
+class SkylightState:
+    position: int = 0  # 0 = closed, 100 = open
     online: bool = True
 
 
@@ -35,11 +50,31 @@ class RoomConfig:
     proxy_id: int = 0  # legacy; kept so old configs still parse
 
 
+@dataclass
+class ThermostatConfig:
+    room: str        # house.yaml room slug (e.g. "upstairs_hvac")
+    device: str      # device slot name (e.g. "hvac_upstairs")
+    item_id: int     # Director item id for the thermostat
+
+
+@dataclass
+class SkylightConfig:
+    room: str            # house.yaml room slug (e.g. "kitchen")
+    device: str          # device slot name (e.g. "skylight")
+    item_ids: list[int]  # Director item ids for the motorized covers in this group
+
+
 class Backend(Protocol):
     """Contract every Control4 backend must satisfy."""
 
-    async def init(self, rooms: list[RoomConfig]) -> None: ...
+    async def init(
+        self,
+        rooms: list[RoomConfig],
+        thermostats: list[ThermostatConfig] | None = None,
+        skylights: list[SkylightConfig] | None = None,
+    ) -> None: ...
 
+    # Lights ------------------------------------------------------------
     async def get_light_state(self, room: str) -> LightState: ...
 
     async def set_light(
@@ -54,5 +89,25 @@ class Backend(Protocol):
     async def run_c4_scene(self, scene_name: str, room: str | None = None) -> SceneFiring: ...
 
     def on_external_light_change(self, handler: Callable[[str, LightState], None]) -> None: ...
+
+    # Climate / HVAC ----------------------------------------------------
+    async def get_climate_state(self, device: str) -> ClimateState: ...
+
+    async def set_climate(
+        self,
+        device: str,
+        target_f: float | None = None,
+        mode: str | None = None,
+    ) -> ClimateState: ...
+
+    # Skylights / Blinds ------------------------------------------------
+    async def get_skylight_state(self, room: str, device: str) -> SkylightState: ...
+
+    async def set_skylight(
+        self,
+        room: str,
+        device: str,
+        position: int,
+    ) -> SkylightState: ...
 
     async def close(self) -> None: ...

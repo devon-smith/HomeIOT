@@ -29,12 +29,25 @@ import aiohttp
 from pyControl4.account import C4Account
 from pyControl4.director import C4Director
 
-from .backend import Backend, LightState, RoomConfig, SceneFiring
+from .backend import (
+    Backend,
+    ClimateState,
+    LightState,
+    RoomConfig,
+    SceneFiring,
+    SkylightConfig,
+    SkylightState,
+    ThermostatConfig,
+)
 
 log = logging.getLogger("control4.real")
 
 # Director tokens are valid for 24h. Refresh proactively at 12h.
 TOKEN_REFRESH_S = 12 * 60 * 60
+
+# C4 thermostat mode constants
+_MODE_TO_C4 = {"heat": "Heat", "cool": "Cool", "auto": "Auto", "off": "Off"}
+_C4_TO_MODE = {v.lower(): k for k, v in _MODE_TO_C4.items()}
 
 
 def _now_iso() -> str:
@@ -71,10 +84,27 @@ class PyControl4Backend(Backend):
         self._external_handler: Callable[[str, LightState], None] | None = None
         self._poll_task: asyncio.Task | None = None
 
-    async def init(self, rooms: list[RoomConfig]) -> None:
+        # Climate / skylight maps
+        self._thermostats: dict[str, int] = {}                  # device slot -> item_id
+        self._climate_cache: dict[str, ClimateState] = {}       # device slot -> state
+        self._skylights: dict[tuple[str, str], list[int]] = {}  # (room, device) -> ids
+        self._skylight_cache: dict[tuple[str, str], SkylightState] = {}
+
+    async def init(
+        self,
+        rooms: list[RoomConfig],
+        thermostats: list[ThermostatConfig] | None = None,
+        skylights: list[SkylightConfig] | None = None,
+    ) -> None:
         for r in rooms:
             self._room_lights[r.room] = list(r.light_ids)
             self._cached[r.room] = LightState(on=False, brightness=0, online=True)
+        for t in thermostats or []:
+            self._thermostats[t.device] = t.item_id
+            self._climate_cache[t.device] = ClimateState(online=True)
+        for s in skylights or []:
+            self._skylights[(s.room, s.device)] = list(s.item_ids)
+            self._skylight_cache[(s.room, s.device)] = SkylightState(position=0, online=True)
 
         self._cloud_session = aiohttp.ClientSession()
         ssl_ctx = ssl.create_default_context()
@@ -88,9 +118,11 @@ class PyControl4Backend(Backend):
         await self._refresh_all_state()
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info(
-            "ready: %d rooms, %d total lights, %d scenes",
+            "ready: %d rooms / %d lights / %d thermostats / %d skylight groups / %d scenes",
             len(self._room_lights),
             sum(len(v) for v in self._room_lights.values()),
+            len(self._thermostats),
+            len(self._skylights),
             len(self.scene_ids),
         )
 
@@ -218,6 +250,137 @@ class PyControl4Backend(Backend):
     def on_external_light_change(self, handler: Callable[[str, LightState], None]) -> None:
         self._external_handler = handler
 
+    # ------------------------------------------------------------------
+    # Climate / HVAC
+    # ------------------------------------------------------------------
+
+    async def get_climate_state(self, device: str) -> ClimateState:
+        return self._climate_cache.get(device, ClimateState(online=False))
+
+    async def set_climate(
+        self,
+        device: str,
+        target_f: float | None = None,
+        mode: str | None = None,
+    ) -> ClimateState:
+        item_id = self._thermostats.get(device)
+        if not item_id:
+            raise KeyError(f"no C4 thermostat bound to device '{device}'")
+        await self._ensure_token_fresh()
+        assert self._director is not None
+
+        if mode is not None:
+            c4_mode = _MODE_TO_C4.get(mode.lower())
+            if c4_mode is None:
+                raise ValueError(f"invalid mode '{mode}' (use heat/cool/auto/off)")
+            await self._director.send_post_request(
+                f"/api/v1/items/{item_id}/commands",
+                "SET_MODE_HVAC",
+                {"MODE": c4_mode},
+            )
+
+        cur = self._climate_cache.get(device) or ClimateState()
+        effective_mode = (mode or cur.mode or "auto").lower()
+
+        if target_f is not None:
+            t = float(target_f)
+            # In heat/cool modes set the matching setpoint; in auto/off,
+            # set heat = t-2 and cool = t+2 to bracket the target.
+            if effective_mode == "heat":
+                await self._send_setpoint(item_id, "SET_HEAT_SETPOINT", t)
+            elif effective_mode == "cool":
+                await self._send_setpoint(item_id, "SET_COOL_SETPOINT", t)
+            else:
+                await self._send_setpoint(item_id, "SET_HEAT_SETPOINT", t - 2)
+                await self._send_setpoint(item_id, "SET_COOL_SETPOINT", t + 2)
+
+        # Refresh from Director so the echo reflects reality.
+        new_state = await self._fetch_climate_state(device)
+        self._climate_cache[device] = new_state
+        return new_state
+
+    async def _send_setpoint(self, item_id: int, command: str, value: float) -> None:
+        assert self._director is not None
+        await self._director.send_post_request(
+            f"/api/v1/items/{item_id}/commands",
+            command,
+            {"VALUE": int(round(value))},
+        )
+
+    async def _fetch_climate_state(self, device: str) -> ClimateState:
+        item_id = self._thermostats.get(device)
+        if not item_id:
+            return ClimateState(online=False)
+        await self._ensure_token_fresh()
+        assert self._director is not None
+
+        async def _read(var: str) -> str | None:
+            try:
+                return await self._director.get_item_variable_value(item_id, var)
+            except Exception as err:
+                log.debug("thermostat %s read %s failed: %s", item_id, var, err)
+                return None
+
+        # Try common C4 variable names; not every driver exposes the same set.
+        temp_raw = await _read("TEMPERATURE_F") or await _read("CURRENT_TEMPERATURE")
+        heat_sp = await _read("HEAT_SETPOINT_F") or await _read("HEATING_SETPOINT")
+        cool_sp = await _read("COOL_SETPOINT_F") or await _read("COOLING_SETPOINT")
+        mode_raw = await _read("HVAC_MODE")
+        state_raw = await _read("HVAC_STATE")
+
+        def _f(v: str | None) -> float | None:
+            if v is None:
+                return None
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        return ClimateState(
+            current_f=_f(temp_raw),
+            heat_setpoint_f=_f(heat_sp),
+            cool_setpoint_f=_f(cool_sp),
+            mode=_C4_TO_MODE.get((mode_raw or "").lower(), "off"),
+            hvac_state=(state_raw or "idle").lower(),
+            online=temp_raw is not None,
+        )
+
+    # ------------------------------------------------------------------
+    # Skylights / motorized covers
+    # ------------------------------------------------------------------
+
+    async def get_skylight_state(self, room: str, device: str) -> SkylightState:
+        return self._skylight_cache.get((room, device), SkylightState(online=False))
+
+    async def set_skylight(self, room: str, device: str, position: int) -> SkylightState:
+        ids = self._skylights.get((room, device))
+        if not ids:
+            raise KeyError(f"no C4 skylights bound to {room}.{device}")
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        target = max(0, min(100, int(position)))
+
+        # Velux IR and most C4 motorized covers respond to SET_LEVEL the same
+        # way dimmers do: 0 = closed/down, 100 = open/up.
+        results = await asyncio.gather(
+            *(self._set_level(i, target) for i in ids),
+            return_exceptions=True,
+        )
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors and len(errors) == len(results):
+            raise errors[0]
+        if errors:
+            log.warning(
+                "set_skylight %s.%s: %d/%d covers failed",
+                room, device, len(errors), len(results),
+            )
+
+        state = SkylightState(position=target, online=True)
+        self._skylight_cache[(room, device)] = state
+        return state
+
+    # ------------------------------------------------------------------
+
     async def _poll_loop(self) -> None:
         while True:
             try:
@@ -241,7 +404,13 @@ class PyControl4Backend(Backend):
                 ):
                     self._external_handler(room, new_state)
             except Exception as err:
-                log.debug("refresh %s: %s", room, err)
+                log.debug("refresh light %s: %s", room, err)
+
+        for device in list(self._thermostats.keys()):
+            try:
+                self._climate_cache[device] = await self._fetch_climate_state(device)
+            except Exception as err:
+                log.debug("refresh climate %s: %s", device, err)
 
     async def _fetch_room_state(self, room: str) -> LightState:
         light_ids = self._room_lights.get(room) or []

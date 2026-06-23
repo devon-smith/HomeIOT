@@ -40,6 +40,11 @@ rooms:
           c4_light_ids: [4542, 4546, 4550, 4552, 4738, 4747]
           # Sink Pendants, Kitchen Table Pendants, Above Cabinet,
           # Island Pendants, Under Cabinet Lights, Blue Table
+      skylight:
+        adapter: control4
+        config:
+          c4_skylight_ids: [4346, 4348, 1377]
+          # Kitchen Skylight Blinds, Kitchen Skylights, Butler's Skylight
 
   family_room:
     label: Family Room
@@ -173,6 +178,10 @@ rooms:
         config:
           c4_room_id: 256
           c4_light_ids: [3185, 3187]  # Hanging Light, Entry Halogens
+      skylight:
+        adapter: control4
+        config:
+          c4_skylight_ids: [4350]  # Foyer Skylights
 
   master_bath:
     label: Master Bath
@@ -183,6 +192,10 @@ rooms:
           c4_room_id: 704
           c4_light_ids: [4184, 4186, 4763]
           # Lavatory Fan, Lavatory Light, Bath Shower
+      skylight:
+        adapter: control4
+        config:
+          c4_skylight_ids: [1381]  # Master Bath Skylight
 
   coopers_room:
     label: Cooper's Room
@@ -283,12 +296,43 @@ rooms:
           # Lamp Post, Wall Lights, Bedroom Ceiling, Bedroom Cans,
           # Main Lights, Sconces, Pendants
 
+  # ---- Virtual HVAC zones (no Sonos/lights — just the thermostat) ----
+  # The LLM treats `hvac_upstairs` / `hvac_downstairs` as climate zones
+  # via set_climate. Each one drives one of the two whole-house thermostats.
+  # Use the hvac_zones map below to find which physical rooms belong to which.
+  upstairs_hvac:
+    label: Upstairs HVAC
+    devices:
+      hvac_upstairs:
+        adapter: control4
+        config:
+          c4_thermostat_id: 4426  # Upper Floor Thermostat (Foyer)
+
+  downstairs_hvac:
+    label: Downstairs HVAC
+    devices:
+      hvac_downstairs:
+        adapter: control4
+        config:
+          c4_thermostat_id: 4410  # Lower Floor Thermostat (Laundry)
+
 # Control4 scene buttons we know exist as type-7 items.
 # These fire via `run_c4_scene` with the key as the name.
 c4:
   scenes:
     goodnight: 4644
     good_morning: 4646
+
+# Which physical rooms each HVAC thermostat actually conditions.
+# The LLM uses this so "set the master bedroom to 70" resolves to the
+# upper floor thermostat, not a per-room one (we don't have those).
+hvac_zones:
+  upstairs:
+    thermostat_device: hvac_upstairs
+    rooms: [master_bedroom, master_bath, kitchen, family_room, dining_room, living_room, gallery, foyer]
+  downstairs:
+    thermostat_device: hvac_downstairs
+    rooms: [theater, workout, blue_room, coopers_room, devons_room, devons_bath, workshop]
 
 zones:
   outdoor: [backyard, terrace, pool_house, oasis_palms, waterfall, pool_area, front_gate, main_house_perimeter]
