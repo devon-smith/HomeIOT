@@ -51,6 +51,11 @@ declare module "sonos" {
     setMuted(muted: boolean, channel?: string): Promise<unknown>;
     queue(options: { uri: string; metadata?: string }, positionInQueue?: number): Promise<unknown>;
     flush(): Promise<unknown>;
+    /**
+     * Set the AVTransport play mode. Accepts: NORMAL, REPEAT_ALL, REPEAT_ONE,
+     * SHUFFLE_NOREPEAT, SHUFFLE (= shuffle + repeat all), SHUFFLE_REPEAT_ONE.
+     */
+    setPlayMode(mode: string): Promise<unknown>;
   }
 
   export class AsyncDeviceDiscovery {

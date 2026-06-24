@@ -31,6 +31,14 @@ const schema = z.object({
   HB_VOICE_KEEP_OPEN: z.coerce.boolean().default(true),
   HB_VOICE_TERSE: z.coerce.boolean().default(true),
 
+  // Sonos playback defaults. When the planner starts a playlist, the
+  // adapter sets the Sonos play mode so the queue behaves the way the
+  // house wants by default. Override per-environment if needed.
+  //   HB_SONOS_SHUFFLE — randomize track order (default: on)
+  //   HB_SONOS_REPEAT  — loop the queue forever when it ends (default: on)
+  HB_SONOS_SHUFFLE: z.coerce.boolean().default(true),
+  HB_SONOS_REPEAT: z.coerce.boolean().default(true),
+
   // Claude API pricing (USD per million tokens). Used by /api-usage to estimate
   // cost; override if you switch tiers or to track exact billed prices.
   HB_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(3.0),
