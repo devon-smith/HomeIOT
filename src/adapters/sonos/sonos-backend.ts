@@ -1,9 +1,26 @@
 import { AsyncDeviceDiscovery, Sonos } from "sonos";
+import { config } from "../../config.js";
 import { type SonosBackend, type ZoneConfig, type ZoneState } from "./backend.js";
 import { log } from "../../core/log.js";
 
 const DISCOVERY_TIMEOUT_MS = 8000;
 const PLAY_STATES_THAT_MEAN_PLAYING = new Set(["playing", "transitioning"]);
+
+/**
+ * Resolve HB_SONOS_SHUFFLE + HB_SONOS_REPEAT into a Sonos play mode string.
+ *   shuffle + repeat -> SHUFFLE         (random order, loop forever)
+ *   shuffle only     -> SHUFFLE_NOREPEAT
+ *   repeat only      -> REPEAT_ALL
+ *   neither          -> NORMAL
+ */
+function configuredPlayMode(): string {
+  const sh = config.HB_SONOS_SHUFFLE;
+  const rp = config.HB_SONOS_REPEAT;
+  if (sh && rp) return "SHUFFLE";
+  if (sh && !rp) return "SHUFFLE_NOREPEAT";
+  if (!sh && rp) return "REPEAT_ALL";
+  return "NORMAL";
+}
 
 interface SonosTrack {
   title?: string;
@@ -155,11 +172,31 @@ export class RealSonosBackend implements SonosBackend {
       }
       await device.flush();
       await device.queue({ uri: playable.uri, metadata: playable.metadata });
+      // Apply the configured shuffle/repeat mode AFTER the queue is loaded
+      // (some Sonos firmwares reset the mode on flush) but BEFORE play()
+      // so the first track is already picked at random.
+      await this.applyPlayMode(device, room);
       await device.play();
     } else {
+      // Resume/play with no query — still re-apply the mode so the user's
+      // configured shuffle/repeat survives even if someone toggled it in
+      // the Sonos app.
+      await this.applyPlayMode(device, room);
       await device.play();
     }
     return this.readState(device);
+  }
+
+  /** Set the configured play mode on a zone, swallowing failures so a
+   *  non-essential setting can't block playback. */
+  private async applyPlayMode(device: Sonos, room: string): Promise<void> {
+    const mode = configuredPlayMode();
+    if (mode === "NORMAL") return; // skip the round-trip when nothing to change
+    try {
+      await device.setPlayMode(mode);
+    } catch (err) {
+      log.warn({ err, room, mode }, "sonos: setPlayMode failed (continuing)");
+    }
   }
 
   /**
@@ -233,6 +270,7 @@ export class RealSonosBackend implements SonosBackend {
 
   async resume(room: string): Promise<ZoneState> {
     const device = this.requireDevice(room);
+    await this.applyPlayMode(device, room);
     await device.play();
     return this.readState(device);
   }
