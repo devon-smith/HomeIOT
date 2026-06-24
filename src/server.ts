@@ -336,8 +336,25 @@ self.addEventListener('fetch', e => {
     return "On it.";
   }
   function ttsFriendly(s: string): string {
-    // Trim debug noise (slugs already excluded), cap length for TTS.
+    // The planner writes for the chat/dashboard UI (markdown). Alexa/Siri
+    // speak the raw string, so strip formatting Alexa would mispronounce
+    // ("**73F**" -> "star star seventy three") and cap length for the
+    // voice SLA.
     let out = (s || "").trim();
+    out = out
+      .replace(/\*\*([^*]+)\*\*/g, "$1")            // **bold**
+      .replace(/__([^_]+)__/g, "$1")                // __bold__
+      .replace(/\*([^*]+)\*/g, "$1")                // *italic*
+      .replace(/(^|\s)_([^_]+)_(?=\s|$)/g, "$1$2")  // _italic_ (word-bounded)
+      .replace(/~~([^~]+)~~/g, "$1")                // ~~strike~~
+      .replace(/`([^`]+)`/g, "$1")                  // `code`
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")      // [text](url) -> text
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")           // # headings
+      .replace(/^\s*[-*+]\s+/gm, "")                // bullet markers
+      .replace(/\s*\n+\s*/g, ". ")                  // newlines -> sentence breaks
+      .replace(/\.\s*\.\s*/g, ". ")                 // collapse doubled periods
+      .replace(/[ \t]{2,}/g, " ")                   // collapse runs of spaces
+      .trim();
     if (out.length > 240) out = out.slice(0, 237).trim() + "...";
     return out || "Done.";
   }
