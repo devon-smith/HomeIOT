@@ -166,13 +166,23 @@ class IAquaLinkBackend(Backend):
                         log.warning("poll for %s.%s failed: %s", d.room, d.device, err)
                         continue
                     prev = self._last_state.get((d.room, d.device))
-                    if self._diff(prev, state):
-                        self._last_state[(d.room, d.device)] = state
-                        if self._handler:
-                            try:
-                                self._handler(d.room, d.device, state)
-                            except Exception as err:
-                                log.exception("external-change handler raised: %s", err)
+                    self._last_state[(d.room, d.device)] = state
+                    # Always notify so the published `ts` stays fresh — without
+                    # this, the dashboard appeared stuck on whatever value was
+                    # last seen when state crossed the diff threshold. The
+                    # `changed` flag lets downstream consumers (audit, scenes)
+                    # still distinguish noise from real movement.
+                    changed = self._diff(prev, state)
+                    if self._handler:
+                        try:
+                            self._handler(d.room, d.device, state)
+                        except Exception as err:
+                            log.exception("external-change handler raised: %s", err)
+                    if changed:
+                        log.debug(
+                            "iaqualink %s.%s changed: current=%.1f target=%.1f mode=%s",
+                            d.room, d.device, state.current_f, state.target_f, state.mode,
+                        )
         except asyncio.CancelledError:
             return
 
@@ -181,8 +191,8 @@ class IAquaLinkBackend(Backend):
         if prev is None:
             return True
         return (
-            abs(prev.target_f - curr.target_f) > 0.5
-            or abs(prev.current_f - curr.current_f) > 0.5
+            abs(prev.target_f - curr.target_f) > 0.1
+            or abs(prev.current_f - curr.current_f) > 0.1
             or prev.mode != curr.mode
             or prev.heating != curr.heating
             or prev.online != curr.online
