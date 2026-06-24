@@ -251,20 +251,42 @@ export class ClaudePlanner implements Planner {
       const volByRoom = prefs.music?.default_volume_by_room ?? {};
       const favs = prefs.music?.favorite_playlists ?? [];
       const moods = prefs.music?.mood_playlists ?? {};
-      if (Object.keys(volByRoom).length || favs.length || Object.keys(moods).length) {
+      const volByMood = prefs.music?.default_volume_by_mood ?? {};
+      const roomsByScene = prefs.music?.default_rooms_by_scene ?? {};
+      const starred = prefs.music?.starred_playlists ?? [];
+      const anyMusic = Object.keys(volByRoom).length || favs.length || Object.keys(moods).length
+        || Object.keys(volByMood).length || Object.keys(roomsByScene).length || starred.length;
+      if (anyMusic) {
         lines.push("", "## Preferences");
         lines.push(
-          "When the user asks to play music with no specific query (e.g. 'play music in the kitchen'), pick from favorite_playlists and use the room's default_volume. For mood asks ('something chill', 'focus music', 'dinner vibes'), match a mood_playlist key.",
+          "When the user asks to play music with no specific query (e.g. 'play music in the kitchen'), pick from favorite_playlists and use the room's default_volume. For mood asks ('something chill', 'focus music', 'dinner vibes'), match a mood_playlist key. For named scenes with no room ('play dinner jazz'), use default_rooms_by_scene. Per-mood volume in default_volume_by_mood overrides the room default when both are present.",
         );
         if (Object.keys(volByRoom).length) {
           const pairs = Object.entries(volByRoom).map(([r, v]) => `${r}=${v}`).join(", ");
           lines.push(`- default music volume by room: ${pairs}`);
+        }
+        if (Object.keys(volByMood).length) {
+          const pairs = Object.entries(volByMood).map(([m, v]) => `${m}=${v}`).join(", ");
+          lines.push(`- default music volume by mood: ${pairs}`);
         }
         if (favs.length) {
           lines.push(`- favorite playlists (good defaults): ${favs.join(" | ")}`);
         }
         for (const [mood, query] of Object.entries(moods)) {
           lines.push(`- mood "${mood}" → "${query}"`);
+        }
+        for (const [scene, rooms] of Object.entries(roomsByScene)) {
+          lines.push(`- scene "${scene}" default rooms: ${rooms.join(", ")}`);
+        }
+        if (starred.length) {
+          lines.push("- starred playlists (dashboard one-taps; match by label or query):");
+          for (const sp of starred) {
+            const bits = [`"${sp.query}"`];
+            if (sp.rooms?.length) bits.push(`rooms=${sp.rooms.join(",")}`);
+            if (sp.volume !== undefined) bits.push(`vol=${sp.volume}`);
+            if (sp.mood) bits.push(`mood=${sp.mood}`);
+            lines.push(`    - ${sp.label}: ${bits.join(" ")}`);
+          }
         }
       }
       const lb = prefs.lights?.default_brightness;
