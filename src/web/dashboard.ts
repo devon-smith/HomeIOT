@@ -618,6 +618,7 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
       background: linear-gradient(150deg, rgba(208,125,73,0.10), rgba(232,210,176,0.02));
       border: 1px solid rgba(208,125,73,0.18);
       transition: transform 120ms, filter 120ms, border-color 120ms;
+      overflow: hidden;
     }
     .fav-chip:hover { border-color: rgba(208,125,73,0.34); filter: brightness(1.05); }
     .fav-chip:active { transform: scale(0.97); }
@@ -631,9 +632,9 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
       background: rgba(208,125,73,0.18); color: var(--accent-warm-light);
       display: flex; align-items: center; justify-content: center;
     }
-    .fav-chip-meta { min-width: 0; flex: 1; }
-    .fav-chip-label { font-size: 13px; font-weight: 600; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .fav-chip-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fav-chip-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .fav-chip-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fav-chip-sub { display: block; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ============ USAGE PAGE ============ */
     .usage-summary {
