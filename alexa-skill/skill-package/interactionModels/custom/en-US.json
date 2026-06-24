@@ -6,6 +6,7 @@
         { "name": "AMAZON.StopIntent", "samples": [] },
         { "name": "AMAZON.CancelIntent", "samples": [] },
         { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
         {
           "name": "RunCommandIntent",
           "slots": [
@@ -14,7 +15,35 @@
           "samples": [
             "to {command}",
             "for {command}",
-            "that {command}"
+            "that {command}",
+            "turn {command}",
+            "set {command}",
+            "play {command}",
+            "make {command}",
+            "open {command}",
+            "close {command}",
+            "dim {command}",
+            "brighten {command}",
+            "pause {command}",
+            "resume {command}",
+            "stop {command}",
+            "start {command}",
+            "show {command}",
+            "warm {command}",
+            "cool {command}",
+            "heat {command}",
+            "raise {command}",
+            "lower {command}",
+            "is {command}",
+            "are {command}",
+            "what {command}",
+            "what's {command}",
+            "how {command}",
+            "now {command}",
+            "go {command}",
+            "do {command}",
+            "run {command}",
+            "tell me {command}"
           ]
         }
       ],
