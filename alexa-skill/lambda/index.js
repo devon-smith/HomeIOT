@@ -28,6 +28,8 @@
 
 const Alexa = require('ask-sdk-core');
 const crypto = require('crypto');
+const https = require('https');
+const { URL } = require('url');
 
 let fileConfig = {};
 try { fileConfig = require('./config'); } catch (_) { /* fall through to env */ }
@@ -44,26 +46,59 @@ function sign(ts, requestId, text) {
   return crypto.createHmac('sha256', SECRET).update(`${ts}.${requestId}.${text}`).digest('hex');
 }
 
-async function callBrain(payload) {
-  const ts = Date.now().toString();
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-HB-Timestamp': ts,
-    'X-HB-Signature': sign(ts, payload.requestId, payload.text),
-  };
-  if (CF_ID && CF_SECRET) {
-    headers['CF-Access-Client-Id'] = CF_ID;
-    headers['CF-Access-Client-Secret'] = CF_SECRET;
-  }
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), CLIENT_TIMEOUT_MS);
-  try {
-    const res = await fetch(BRAIN_URL, {
-      method: 'POST', headers, body: JSON.stringify(payload), signal: ctrl.signal,
+/**
+ * POST the command to the brain's /interpret. Uses Node's built-in `https`
+ * module (NOT global fetch) so it runs on every Alexa-hosted runtime —
+ * fetch/AbortController are only globals on Node 18+, and Alexa-hosted
+ * skills still provision Node 16. Explicit socket timeout via setTimeout.
+ */
+function callBrain(payload) {
+  return new Promise((resolve, reject) => {
+    const ts = Date.now().toString();
+    const bodyStr = JSON.stringify(payload);
+    const u = new URL(BRAIN_URL);
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(bodyStr),
+      'X-HB-Timestamp': ts,
+      'X-HB-Signature': sign(ts, payload.requestId, payload.text),
+    };
+    if (CF_ID && CF_SECRET) {
+      headers['CF-Access-Client-Id'] = CF_ID;
+      headers['CF-Access-Client-Secret'] = CF_SECRET;
+    }
+    const req = https.request(
+      {
+        hostname: u.hostname,
+        port: u.port || 443,
+        path: u.pathname + u.search,
+        method: 'POST',
+        headers,
+      },
+      (res) => {
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            reject(new Error(`brain ${res.statusCode}: ${data.slice(0, 200)}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(data)); // { spoken, status, keepSessionOpen, reprompt }
+          } catch (_) {
+            reject(new Error(`brain returned non-JSON: ${data.slice(0, 120)}`));
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(CLIENT_TIMEOUT_MS, () => {
+      req.destroy(new Error(`brain timeout after ${CLIENT_TIMEOUT_MS}ms`));
     });
-    if (!res.ok) throw new Error(`brain ${res.status}`);
-    return await res.json();   // { spoken, status, keepSessionOpen, reprompt }
-  } finally { clearTimeout(t); }
+    req.write(bodyStr);
+    req.end();
+  });
 }
 
 /** Fire the "On it." progressive response so the user hears something
