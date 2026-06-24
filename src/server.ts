@@ -12,6 +12,7 @@ import { verifyHmac } from "./auth/hmac.js";
 import { authorizeForSource, type Source } from "./auth/source-authz.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
+import { recordApiCall, summarize, recent, totals } from "./core/api-metrics.js";
 import { DASHBOARD_HTML } from "./web/dashboard.js";
 
 interface RecentEvent {
@@ -183,6 +184,31 @@ self.addEventListener('fetch', e => {
       quick_actions: house.preferences?.quick_actions ?? [],
       moods: Object.keys(house.preferences?.music?.mood_playlists ?? {}),
       favorite_playlists: house.preferences?.music?.favorite_playlists ?? [],
+      starred_playlists: house.preferences?.music?.starred_playlists ?? [],
+    };
+  });
+
+  // GET /api-usage — Claude API call accounting for the dashboard's Usage tab.
+  // Returns rolling-window summaries (today / 7d / lifetime since boot) plus
+  // the most recent calls so the UI can list them. Reset on brain restart.
+  app.get("/api-usage", async (req) => {
+    const query = req.query as { limit?: string } | undefined;
+    const limit = Math.min(200, Math.max(1, parseInt(query?.limit ?? "50", 10) || 50));
+    const HOUR = 60 * 60 * 1000;
+    return {
+      windows: {
+        last_hour: summarize(HOUR),
+        last_24h: summarize(24 * HOUR),
+        last_7d: summarize(7 * 24 * HOUR),
+        since_boot: totals(),
+      },
+      pricing: {
+        input_per_mtok: config.HB_PRICE_INPUT_PER_MTOK,
+        output_per_mtok: config.HB_PRICE_OUTPUT_PER_MTOK,
+        cache_write_per_mtok: config.HB_PRICE_CACHE_WRITE_PER_MTOK,
+        cache_read_per_mtok: config.HB_PRICE_CACHE_READ_PER_MTOK,
+      },
+      recent: recent(limit),
     };
   });
 
@@ -243,6 +269,7 @@ self.addEventListener('fetch', e => {
     log.info({ text: body.text, actor }, "message received");
     const result = await router.handle(body.text, actor);
     log.info({ route: result.route, latencyMs: result.latencyMs }, "message handled");
+    trackUsage(result, body.text, actor);
     return {
       ok: result.results.every((r) => r.ok) || result.results.length === 0,
       route: result.route,
@@ -251,6 +278,26 @@ self.addEventListener('fetch', e => {
       toolCalls: result.toolCalls,
     };
   });
+
+  function trackUsage(result: Awaited<ReturnType<typeof router.handle>>, text: string, actor: string) {
+    const cs = result.cacheStats ?? {
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+    recordApiCall({
+      actor,
+      route: result.route,
+      text: text.length > 140 ? text.slice(0, 137) + "..." : text,
+      toolCalls: result.toolCalls.length,
+      latencyMs: result.latencyMs,
+      cacheCreationInputTokens: cs.cacheCreationInputTokens,
+      cacheReadInputTokens: cs.cacheReadInputTokens,
+      inputTokens: cs.inputTokens,
+      outputTokens: cs.outputTokens,
+    });
+  }
 
   // POST /interpret — voice-surface entrypoint (Alexa, Siri, future).
   // HMAC-signed, deduped via Redis on requestId, races the planner against
@@ -307,9 +354,13 @@ self.addEventListener('fetch', e => {
     if (winner === SLOW) {
       // Let the planner keep running (floating promise). On reboot mid-plan
       // we lose it — a known v0 gap; promoting to BullMQ continuation is the
-      // P5/P6-era follow-up.
+      // P5/P6-era follow-up. Either way, record API usage when it finishes
+      // so the dashboard's Usage tab captures async-branch calls too.
       exec.then(
-        (r) => log.info({ requestId: body.requestId, latencyMs: r.latencyMs }, "voice async finished"),
+        (r) => {
+          trackUsage(r, body.text!, `voice:${source}`);
+          log.info({ requestId: body.requestId, latencyMs: r.latencyMs }, "voice async finished");
+        },
         (err) => log.warn({ requestId: body.requestId, err: err?.message }, "voice async failed"),
       );
       const ack = ackForText(body.text);
@@ -318,13 +369,30 @@ self.addEventListener('fetch', e => {
     }
 
     const result = winner;
+    trackUsage(result, body.text, `voice:${source}`);
     const ok = result.results.every((r) => r.ok) || result.results.length === 0;
-    const spoken = ttsFriendly(result.response);
+    const isAction = result.toolCalls.length > 0;
+    // Terse mode: collapse successful action confirmations to a short clause
+    // so the user can speak the next command sooner. Queries (no tool calls)
+    // and errors keep the full text.
+    const spoken = config.HB_VOICE_TERSE && ok && isAction
+      ? terseFor(result.response)
+      : ttsFriendly(result.response);
+    // Keep-open: lets the user chain "and then warm the hot tub" without
+    // re-saying "Alexa, ask natasha brain to...". Honored only on success
+    // (an error should end the turn so the user can rethink).
+    const keepOpen = config.HB_VOICE_KEEP_OPEN && ok && source === "alexa";
     pushEvent("voice_done", {
       source, requestId: body.requestId, text: body.text,
       route: result.route, latencyMs: result.latencyMs, ok,
+      terse: config.HB_VOICE_TERSE && ok && isAction, keepOpen,
     });
-    return { spoken, status: ok ? "done" : "error", keepSessionOpen: false, reprompt: null };
+    return {
+      spoken,
+      status: ok ? "done" : "error",
+      keepSessionOpen: keepOpen,
+      reprompt: keepOpen ? "What else?" : null,
+    };
   });
 
   function ackForText(text: string): string {
@@ -334,6 +402,22 @@ self.addEventListener('fetch', e => {
     if (t.includes("good morning")) return "Starting the morning.";
     if (t.includes("warm") && t.includes("hot tub")) return "Warming the hot tub.";
     return "On it.";
+  }
+  // Collapse the planner's prose down to a single short clause Alexa can
+  // speak in under a second. Falls back to "OK." on anything empty/weird.
+  // Examples:
+  //   "Turned off the kitchen lights."        -> "Turned off the kitchen lights."
+  //   "Started 'Smooth Jazz' in the kitchen." -> "Started smooth jazz in the kitchen."
+  //   "Warming the hot tub to 102."           -> "Warming the hot tub to 102."
+  //   Multi-step compound result              -> first sentence, capped at 80 chars.
+  function terseFor(s: string): string {
+    const out = ttsFriendly(s);
+    if (!out) return "OK.";
+    // Take up to the first sentence.
+    const m = out.match(/^[^.!?]{1,80}[.!?]/);
+    if (m) return m[0];
+    if (out.length <= 80) return out.endsWith(".") ? out : out + ".";
+    return out.slice(0, 77).trim() + "...";
   }
   function ttsFriendly(s: string): string {
     // The planner writes for the chat/dashboard UI (markdown). Alexa/Siri

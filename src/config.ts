@@ -22,6 +22,22 @@ const schema = z.object({
   HB_HMAC_MAX_SKEW_MS: z.coerce.number().int().positive().default(5 * 60 * 1000),
   HB_VOICE_DEADLINE_MS: z.coerce.number().int().positive().default(6500),
 
+  // Voice friction reduction.
+  //   HB_VOICE_KEEP_OPEN — Alexa session stays open after a command so the user
+  //                        can issue a follow-up without re-prefixing "ask natasha brain".
+  //   HB_VOICE_TERSE     — collapse action confirmations to a 1-clause "OK." style so
+  //                        the user can speak again faster. Query responses (no tool
+  //                        calls) keep their full text either way.
+  HB_VOICE_KEEP_OPEN: z.coerce.boolean().default(true),
+  HB_VOICE_TERSE: z.coerce.boolean().default(true),
+
+  // Claude API pricing (USD per million tokens). Used by /api-usage to estimate
+  // cost; override if you switch tiers or to track exact billed prices.
+  HB_PRICE_INPUT_PER_MTOK: z.coerce.number().nonnegative().default(3.0),
+  HB_PRICE_OUTPUT_PER_MTOK: z.coerce.number().nonnegative().default(15.0),
+  HB_PRICE_CACHE_WRITE_PER_MTOK: z.coerce.number().nonnegative().default(3.75),
+  HB_PRICE_CACHE_READ_PER_MTOK: z.coerce.number().nonnegative().default(0.30),
+
   DISCOVERY_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 });
 
