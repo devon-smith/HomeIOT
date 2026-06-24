@@ -46,6 +46,13 @@ export const setFan: ToolDef<Args> = {
     try {
       const echo = await ctx.bus.waitForCommand(cmdId, 10_000);
       const state = echo.state as Record<string, unknown>;
+      // Adapter publishes `last_error` when it couldn't reach the device
+      // (e.g. Control4 Director unreachable). Surface that to the planner
+      // instead of claiming success.
+      const err = typeof state["last_error"] === "string" ? state["last_error"] as string : null;
+      if (err) {
+        return { tool: "set_fan", ok: false, message: `${args.room} fan adapter failed: ${err}`, state };
+      }
       return { tool: "set_fan", ok: true, message: describe(args, args.room, state), state };
     } catch {
       return {
