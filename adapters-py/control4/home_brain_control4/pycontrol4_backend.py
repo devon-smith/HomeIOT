@@ -34,6 +34,7 @@ from .backend import (
     AvState,
     Backend,
     ClimateState,
+    FanConfig,
     LightState,
     RoomConfig,
     SceneFiring,
@@ -104,12 +105,18 @@ class PyControl4Backend(Backend):
         self._av_sources: dict[tuple[str, str], dict[str, int]] = {}   # (room, device) -> {source_name: c4_id}
         self._av_cache: dict[tuple[str, str], AvState] = {}
 
+        # Fan maps — fans are dimmer loads addressed separately from lights so
+        # "lights off" doesn't kill them. Reuses LightState shape.
+        self._fans: dict[tuple[str, str], list[int]] = {}              # (room, device) -> load ids
+        self._fan_cache: dict[tuple[str, str], LightState] = {}
+
     async def init(
         self,
         rooms: list[RoomConfig],
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
         avs: list[AvConfig] | None = None,
+        fans: list[FanConfig] | None = None,
     ) -> None:
         for r in rooms:
             self._room_lights[r.room] = list(r.light_ids)
@@ -124,6 +131,9 @@ class PyControl4Backend(Backend):
             self._av_rooms[(a.room, a.device)] = a.c4_room_id
             self._av_sources[(a.room, a.device)] = dict(a.sources)
             self._av_cache[(a.room, a.device)] = AvState(online=True)
+        for f in fans or []:
+            self._fans[(f.room, f.device)] = list(f.fan_ids)
+            self._fan_cache[(f.room, f.device)] = LightState(on=False, brightness=0, online=True)
 
         self._cloud_session = aiohttp.ClientSession()
         ssl_ctx = ssl.create_default_context()
@@ -137,9 +147,10 @@ class PyControl4Backend(Backend):
         await self._refresh_all_state()
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info(
-            "ready: %d rooms / %d lights / %d thermostats / %d skylight groups / %d AV rooms / %d scenes",
+            "ready: %d rooms / %d lights / %d fans / %d thermostats / %d skylight groups / %d AV rooms / %d scenes",
             len(self._room_lights),
             sum(len(v) for v in self._room_lights.values()),
+            sum(len(v) for v in self._fans.values()),
             len(self._thermostats),
             len(self._skylights),
             len(self._av_rooms),
@@ -221,6 +232,50 @@ class PyControl4Backend(Backend):
 
         state = LightState(on=target > 0, brightness=target, online=True)
         self._cached[room] = state
+        return state
+
+    async def get_fan_state(self, room: str, device: str) -> LightState:
+        return self._fan_cache.get(
+            (room, device), LightState(on=False, brightness=0, online=False)
+        )
+
+    async def set_fan(
+        self,
+        room: str,
+        device: str,
+        on: bool | None = None,
+        brightness: int | None = None,
+    ) -> LightState:
+        fan_ids = self._fans.get((room, device))
+        if not fan_ids:
+            raise KeyError(f"no C4 fan bound to {room}.{device}")
+
+        if brightness is not None:
+            target = max(0, min(100, int(brightness)))
+        elif on is True:
+            cur = self._fan_cache.get((room, device), LightState())
+            target = cur.brightness if (cur.on and cur.brightness > 0) else 100
+        elif on is False:
+            target = 0
+        else:
+            raise ValueError("set_fan requires 'on' or 'brightness'")
+
+        await self._ensure_token_fresh()
+        assert self._director is not None
+        results = await asyncio.gather(
+            *(self._set_level(fid, target) for fid in fan_ids),
+            return_exceptions=True,
+        )
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors and len(errors) == len(results):
+            raise errors[0]
+        if errors:
+            log.warning(
+                "set_fan %s.%s: %d/%d loads failed", room, device, len(errors), len(results)
+            )
+
+        state = LightState(on=target > 0, brightness=target, online=True)
+        self._fan_cache[(room, device)] = state
         return state
 
     async def _set_level(self, item_id: int, level: int) -> None:

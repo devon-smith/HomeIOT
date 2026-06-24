@@ -10,6 +10,7 @@ from .backend import (
     AvState,
     Backend,
     ClimateState,
+    FanConfig,
     LightState,
     RoomConfig,
     SceneFiring,
@@ -28,6 +29,7 @@ class MockBackend(Backend):
 
     def __init__(self) -> None:
         self._lights: dict[str, LightState] = {}
+        self._fans: dict[tuple[str, str], LightState] = {}
         self._climate: dict[str, ClimateState] = {}  # keyed by device slot
         self._skylights: dict[tuple[str, str], SkylightState] = {}  # (room, device)
         self._avs: dict[tuple[str, str], AvState] = {}
@@ -40,6 +42,7 @@ class MockBackend(Backend):
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
         avs: list[AvConfig] | None = None,
+        fans: list[FanConfig] | None = None,
     ) -> None:
         for r in rooms:
             self._lights[r.room] = LightState(on=False, brightness=0, online=True)
@@ -57,6 +60,8 @@ class MockBackend(Backend):
         for a in avs or []:
             self._avs[(a.room, a.device)] = AvState(online=True)
             self._av_sources[(a.room, a.device)] = dict(a.sources)
+        for f in fans or []:
+            self._fans[(f.room, f.device)] = LightState(on=False, brightness=0, online=True)
 
     # Lights ----------------------------------------------------------------
 
@@ -102,6 +107,34 @@ class MockBackend(Backend):
         s.brightness = brightness
         if self._external_handler:
             self._external_handler(room, s)
+
+    # Fans ------------------------------------------------------------------
+
+    async def get_fan_state(self, room: str, device: str) -> LightState:
+        return self._fans.get(
+            (room, device), LightState(on=False, brightness=0, online=False)
+        )
+
+    async def set_fan(
+        self,
+        room: str,
+        device: str,
+        on: bool | None = None,
+        brightness: int | None = None,
+    ) -> LightState:
+        s = self._fans.get((room, device))
+        if s is None:
+            raise KeyError(f"no fan bound to {room}.{device}")
+        if on is not None:
+            s.on = on
+            if on and s.brightness == 0:
+                s.brightness = 100
+            if not on:
+                s.brightness = 0
+        if brightness is not None:
+            s.brightness = max(0, min(100, brightness))
+            s.on = s.brightness > 0
+        return s
 
     # Climate ---------------------------------------------------------------
 

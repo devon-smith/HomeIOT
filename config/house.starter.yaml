@@ -139,7 +139,11 @@ rooms:
         adapter: control4
         config:
           c4_room_id: 39
-          c4_light_ids: [4753, 4765]  # Loft Fan, Loft Light
+          c4_light_ids: [4765]  # Loft Light
+      fan:
+        adapter: control4
+        config:
+          c4_fan_ids: [4753]  # Loft Fan
 
   oasis_palms:
     label: Oasis Palms
@@ -215,8 +219,11 @@ rooms:
         adapter: control4
         config:
           c4_room_id: 704
-          c4_light_ids: [4184, 4186, 4763]
-          # Lavatory Fan, Lavatory Light, Bath Shower
+          c4_light_ids: [4186, 4763]  # Lavatory Light, Bath Shower
+      fan:
+        adapter: control4
+        config:
+          c4_fan_ids: [4184]  # Lavatory Fan
       skylight:
         adapter: control4
         config:
@@ -239,7 +246,11 @@ rooms:
         adapter: control4
         config:
           c4_room_id: 401
-          c4_light_ids: [4601, 4603]  # Ceiling Fan, Devon's Lights
+          c4_light_ids: [4603]  # Devon's Lights
+      fan:
+        adapter: control4
+        config:
+          c4_fan_ids: [4601]  # Ceiling Fan
 
   devons_bath:
     label: Devon's Bath

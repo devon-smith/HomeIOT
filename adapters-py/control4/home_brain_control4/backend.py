@@ -82,6 +82,17 @@ class AvConfig:
     sources: dict[str, int] = field(default_factory=dict)  # source name -> source item id
 
 
+@dataclass
+class FanConfig:
+    """Ceiling/exhaust fans wired as C4 dimmer loads (same SET_LEVEL primitive
+    as lights, but addressed independently so 'lights off' doesn't kill them
+    and 'fan off' can target just the fan)."""
+    room: str             # house.yaml room slug (e.g. "devons_room")
+    device: str           # device slot name (e.g. "fan")
+    fan_ids: list[int] = field(default_factory=list)  # type-7 load ids
+
+
+
 class Backend(Protocol):
     """Contract every Control4 backend must satisfy."""
 
@@ -91,6 +102,7 @@ class Backend(Protocol):
         thermostats: list[ThermostatConfig] | None = None,
         skylights: list[SkylightConfig] | None = None,
         avs: list[AvConfig] | None = None,
+        fans: list[FanConfig] | None = None,
     ) -> None: ...
 
     # Lights ------------------------------------------------------------
@@ -108,6 +120,17 @@ class Backend(Protocol):
     async def run_c4_scene(self, scene_name: str, room: str | None = None) -> SceneFiring: ...
 
     def on_external_light_change(self, handler: Callable[[str, LightState], None]) -> None: ...
+
+    # Fans (same SET_LEVEL plumbing as lights, separately addressable) --
+    async def get_fan_state(self, room: str, device: str) -> LightState: ...
+
+    async def set_fan(
+        self,
+        room: str,
+        device: str,
+        on: bool | None = None,
+        brightness: int | None = None,
+    ) -> LightState: ...
 
     # Climate / HVAC ----------------------------------------------------
     async def get_climate_state(self, device: str) -> ClimateState: ...
