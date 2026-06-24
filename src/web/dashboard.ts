@@ -2009,8 +2009,11 @@ function translateEvent(e) {
     else if (device === 'av') { text = s.power ? 'watching ' + (s.current_source || 'AV') : 'AV off'; icon = ACT_ICON.av; }
     else if (device === 'tv') { text = s.on ? 'TV on' : 'TV off'; icon = ACT_ICON.av; }
     else if (device === 'hot_tub' || device === 'pool') {
-      if (s.mode === 'heat') { text = 'warming to ' + (s.target_f ?? '?') + '°'; icon = ACT_ICON.warm; kind = 'warm'; }
-      else if (s.target_f != null) { text = 'target ' + s.target_f + '°'; icon = ACT_ICON.warm; kind = 'warm'; }
+      // Only surface actionable state. Idle target_f flips would otherwise
+      // drown the feed because iAquaLink polls every 30s and currently
+      // double-publishes between current_f and target_f.
+      if (s.mode === 'heat' || s.heater_on === true) { text = 'warming to ' + (s.target_f ?? '?') + '°'; icon = ACT_ICON.warm; kind = 'warm'; }
+      else if (s.mode === 'off' && s.heater_on === false) return null;
       else if (s.mode) { text = (device === 'hot_tub' ? 'hot tub' : 'pool') + ' → ' + s.mode; icon = ACT_ICON.warm; kind = 'warm'; }
     } else if (device === 'fan') {
       if (s.on === true) { text = 'fan on' + (s.level != null ? ' · ' + s.level + '%' : ''); icon = ACT_ICON.cool; kind = 'cool'; }

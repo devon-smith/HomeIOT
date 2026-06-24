@@ -48,6 +48,10 @@ export const setLights: ToolDef<Args> = {
     try {
       const echo = await ctx.bus.waitForCommand(cmdId, 10_000);
       const state = echo.state as Record<string, unknown>;
+      const err = typeof state["last_error"] === "string" ? state["last_error"] as string : null;
+      if (err) {
+        return { tool: "set_lights", ok: false, message: `${args.room} lights adapter failed: ${err}`, state };
+      }
       return { tool: "set_lights", ok: true, message: describe(args, args.room, state), state };
     } catch {
       return {
