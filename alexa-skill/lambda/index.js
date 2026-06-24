@@ -195,6 +195,23 @@ const Help = {
       .getResponse(),
 };
 
+/** If NLU couldn't route an utterance to RunCommandIntent (no carrier word
+ * matched), don't silently beep — tell the user and keep the session open
+ * so they can retry. Also logs to CloudWatch so we can spot common misses. */
+const Fallback = {
+  canHandle: (h) =>
+    Alexa.getRequestType(h.requestEnvelope) === 'IntentRequest'
+    && Alexa.getIntentName(h.requestEnvelope) === 'AMAZON.FallbackIntent',
+  handle: (h) => {
+    console.warn('fallback fired — utterance did not match RunCommandIntent samples');
+    return h.responseBuilder
+      .speak("I didn't catch that. Try starting with turn, set, play, open, or close.")
+      .reprompt('What should I do?')
+      .withShouldEndSession(false)
+      .getResponse();
+  },
+};
+
 const StopOrCancel = {
   canHandle: (h) => {
     if (Alexa.getRequestType(h.requestEnvelope) !== 'IntentRequest') return false;
@@ -224,7 +241,7 @@ const ErrorCatch = {
 };
 
 exports.handler = Alexa.SkillBuilders.custom()
-  .addRequestHandlers(Launch, RunCommand, Help, StopOrCancel, SessionEnded)
+  .addRequestHandlers(Launch, RunCommand, Help, Fallback, StopOrCancel, SessionEnded)
   .addErrorHandlers(ErrorCatch)
   .withApiClient(new Alexa.DefaultApiClient())
   .lambda();
