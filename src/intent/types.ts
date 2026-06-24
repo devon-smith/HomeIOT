@@ -10,10 +10,18 @@ export interface ExecutionResult {
   state?: unknown;
 }
 
+export interface CacheStats {
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface IntentResult {
   route: "fast" | "llm" | "error";
   toolCalls: ToolCall[];
   results: ExecutionResult[];
   response: string;
   latencyMs: number;
+  cacheStats?: CacheStats;
 }

@@ -68,6 +68,7 @@ export class Router {
       results: plan.results,
       response: plan.response,
       latencyMs: Date.now() - t0,
+      cacheStats: plan.cacheStats,
     };
   }
 }

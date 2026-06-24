@@ -24,12 +24,29 @@ const HvacZoneSchema = z.object({
   rooms: z.array(z.string()).default([]),
 });
 
+const StarredPlaylistSchema = z.object({
+  label: z.string(),
+  query: z.string(),
+  mood: z.string().optional(),
+  rooms: z.array(z.string()).default([]),
+  volume: z.number().int().min(0).max(100).optional(),
+});
+
 const PreferencesSchema = z.object({
   music: z
     .object({
       default_volume_by_room: z.record(z.number().int().min(0).max(100)).default({}),
       favorite_playlists: z.array(z.string()).default([]),
       mood_playlists: z.record(z.string()).default({}),
+      // One-tap playlists surfaced in the dashboard "Favorites" strip. Each
+      // entry can specify the default rooms to play it in and a volume.
+      starred_playlists: z.array(StarredPlaylistSchema).default([]),
+      // Default rooms for scenes that play music. The LLM consults this when
+      // the user says "play dinner jazz" without naming a room.
+      default_rooms_by_scene: z.record(z.array(z.string())).default({}),
+      // Default volume for a given mood — overrides the room default when both
+      // are present.
+      default_volume_by_mood: z.record(z.number().int().min(0).max(100)).default({}),
     })
     .default({}),
   lights: z

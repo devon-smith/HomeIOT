@@ -556,13 +556,135 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
 
     /* ============ ACTIVITY TAB ============ */
     .activity-page { padding: 8px 0 0; }
+    .activity-filter-row {
+      display: flex; gap: 8px; padding: 8px 0 14px; overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .activity-filter-row::-webkit-scrollbar { display: none; }
+    .filter-chip {
+      flex: none; padding: 7px 13px; border-radius: 99px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text-secondary); font-size: 12px; font-weight: 600;
+      transition: background 120ms, color 120ms, border-color 120ms;
+    }
+    .filter-chip:hover { background: var(--card-strong); color: var(--text-hi); }
+    .filter-chip.active {
+      background: var(--accent); border-color: var(--accent);
+      color: var(--accent-on); box-shadow: var(--glow-primary);
+    }
+    .activity-group-head {
+      font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--text-faint);
+      padding: 14px 0 6px; border-bottom: 1px solid var(--hairline);
+      margin-bottom: 4px;
+    }
+    .activity-group-head:first-child { padding-top: 4px; }
     .activity-item {
       display: flex; gap: 12px; padding: 10px 0;
-      border-bottom: 1px solid var(--hairline);
+      border-bottom: 1px solid var(--hairline); align-items: flex-start;
     }
     .activity-item:last-child { border-bottom: none; }
-    .activity-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); width: 50px; flex-shrink: 0; }
-    .activity-text { font-size: 13px; color: var(--text-secondary-2); }
+    .activity-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); width: 50px; flex-shrink: 0; padding-top: 1px; }
+    .activity-icon {
+      width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--card-strong); color: var(--text-muted-2);
+    }
+    .activity-icon.voice  { background: rgba(208,125,73,0.18);  color: var(--accent-warm-light); }
+    .activity-icon.sched  { background: rgba(217,168,90,0.18);  color: var(--accent-amber-light); }
+    .activity-icon.music  { background: rgba(127,174,111,0.18); color: var(--accent-green); }
+    .activity-icon.warm   { background: rgba(227,160,111,0.18); color: var(--accent-warm); }
+    .activity-icon.cool   { background: rgba(108,143,168,0.18); color: var(--accent-cool-icon); }
+    .activity-icon.light  { background: rgba(231,189,122,0.18); color: var(--accent-amber-light); }
+    .activity-text { font-size: 13px; color: var(--text-secondary-2); flex: 1; min-width: 0; }
+    .activity-actor { color: var(--text-faint); font-size: 11px; margin-left: 6px; }
+    .activity-failed { color: #c97a6a; }
+
+    /* ============ FAVORITES STRIP ============ */
+    .favorites-row {
+      display: flex; gap: 9px; padding: 12px 0 4px;
+      overflow-x: auto; scroll-snap-type: x mandatory;
+      scrollbar-width: none;
+    }
+    .favorites-row::-webkit-scrollbar { display: none; }
+    .favorites-row:empty { display: none; padding: 0; }
+    @media (min-width: 1000px) {
+      .favorites-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; padding: 6px 0 18px; overflow: visible; }
+    }
+    .fav-chip {
+      flex: none; scroll-snap-align: start; min-width: 152px;
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 13px; border-radius: 13px; cursor: pointer; text-align: left;
+      background: linear-gradient(150deg, rgba(208,125,73,0.10), rgba(232,210,176,0.02));
+      border: 1px solid rgba(208,125,73,0.18);
+      transition: transform 120ms, filter 120ms, border-color 120ms;
+    }
+    .fav-chip:hover { border-color: rgba(208,125,73,0.34); filter: brightness(1.05); }
+    .fav-chip:active { transform: scale(0.97); }
+    .fav-chip.playing {
+      background: linear-gradient(150deg, rgba(208,125,73,0.24), rgba(208,125,73,0.04));
+      border-color: rgba(208,125,73,0.55);
+      box-shadow: 0 0 0 1px rgba(208,125,73,0.18);
+    }
+    .fav-chip-icon {
+      width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+      background: rgba(208,125,73,0.18); color: var(--accent-warm-light);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fav-chip-meta { min-width: 0; flex: 1; }
+    .fav-chip-label { font-size: 13px; font-weight: 600; color: var(--text-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fav-chip-sub { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; color: var(--text-faint); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ============ USAGE PAGE ============ */
+    .usage-summary {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin: 4px 0 18px;
+    }
+    @media (min-width: 760px) { .usage-summary { grid-template-columns: repeat(4, 1fr); } }
+    .usage-card {
+      padding: 14px 15px; border-radius: 16px;
+      background: var(--card); border: 1px solid var(--border);
+    }
+    .usage-card-label { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); }
+    .usage-card-value { font-family: var(--font-serif); font-size: 28px; line-height: 1.1; color: var(--text-hi); margin-top: 6px; }
+    .usage-card-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted-2); margin-top: 5px; }
+    .usage-card.cost { background: linear-gradient(135deg, rgba(208,125,73,0.10), rgba(232,210,176,0.02)); border-color: rgba(208,125,73,0.2); }
+    .usage-card.cost .usage-card-value { color: var(--accent-warm-light); }
+
+    .usage-section-head { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 11px; }
+    .usage-window-tabs { display: flex; gap: 6px; }
+    .usage-window-tab {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+      padding: 5px 10px; border-radius: 7px; cursor: pointer;
+      background: var(--card-strong); color: var(--text-muted-2);
+      border: 1px solid transparent;
+    }
+    .usage-window-tab.active { background: var(--accent); color: var(--accent-on); border-color: var(--accent); }
+
+    .usage-table {
+      border-radius: 14px; overflow: hidden;
+      background: var(--card); border: 1px solid var(--border);
+    }
+    .usage-row {
+      display: grid; grid-template-columns: 60px 1fr 60px 90px;
+      gap: 10px; padding: 10px 13px;
+      border-bottom: 1px solid var(--hairline);
+      font-size: 12px;
+    }
+    .usage-row:last-child { border-bottom: none; }
+    .usage-row.head { background: var(--card-strong); color: var(--text-faint); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; }
+    .usage-row-text { color: var(--text-body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .usage-row-route { font-family: var(--font-mono); font-size: 10.5px; }
+    .usage-row-route.llm  { color: var(--accent-warm-light); }
+    .usage-row-route.fast { color: var(--accent-green); }
+    .usage-row-route.error { color: #c97a6a; }
+    .usage-row-tokens { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted-2); text-align: right; }
+    .usage-row-cost { font-family: var(--font-mono); font-size: 10.5px; color: var(--accent-warm-light); text-align: right; }
+    .usage-bar {
+      height: 6px; border-radius: 4px; background: rgba(232,210,176,0.08);
+      overflow: hidden; margin-top: 10px;
+    }
+    .usage-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-amber)); transition: width 240ms; }
+    .usage-foot { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
 
     /* ============ SEARCH ============ */
     .search-results {
@@ -904,6 +1026,10 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           <span>Search</span>
         </button>
+        <button class="sidebar-nav-btn" data-section="usage">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M4 19V9m6 10V5m6 14v-7m6 7v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>Usage</span>
+        </button>
       </nav>
       <div class="sidebar-bottom">
         <button class="talk-btn" id="talk-btn-desk" title="voice input">
@@ -962,6 +1088,7 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
         <div id="msg-response" class="response" role="status" aria-live="polite"></div>
 
         <div class="now-row" id="now-row"></div>
+        <div class="favorites-row hb-scroll" id="favorites-row"></div>
 
         <div class="section-head">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0Z" stroke="currentColor" stroke-width="1.6"/></svg>
@@ -988,7 +1115,25 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
         <div class="section-head" style="margin-top: 14px;">
           <span class="section-label">Recent activity</span>
         </div>
+        <div class="activity-filter-row" id="activity-filter-row"></div>
         <div class="activity-page" id="activity-feed"><div class="empty">no events yet</div></div>
+      </section>
+
+      <!-- ============ USAGE SECTION ============ -->
+      <section class="section usage" data-section="usage">
+        <div class="page-head">
+          <h2 class="page-title">API usage</h2>
+          <div class="usage-window-tabs" id="usage-window-tabs">
+            <button class="usage-window-tab" data-window="last_hour">1h</button>
+            <button class="usage-window-tab active" data-window="last_24h">24h</button>
+            <button class="usage-window-tab" data-window="last_7d">7d</button>
+            <button class="usage-window-tab" data-window="since_boot">All</button>
+          </div>
+        </div>
+        <div class="usage-summary" id="usage-summary"></div>
+        <div class="usage-section-head"><span class="section-label">Recent calls</span></div>
+        <div class="usage-table" id="usage-table"></div>
+        <div class="usage-foot" id="usage-foot"></div>
       </section>
 
       <!-- ============ SEARCH SECTION (mobile) ============ -->
@@ -1059,9 +1204,9 @@ export const DASHBOARD_HTML = String.raw`<!doctype html>
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2-6 4 14 2-8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span class="nav-btn-label">Activity</span>
     </button>
-    <button class="nav-btn" data-section="search">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span class="nav-btn-label">Search</span>
+    <button class="nav-btn" data-section="usage">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V9m6 10V5m6 14v-7m6 7v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span class="nav-btn-label">Usage</span>
     </button>
   </nav>
 
@@ -1208,8 +1353,58 @@ function switchSection(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.section === name));
   document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.section === name));
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.dataset.section === name));
+  if (name === 'usage') renderUsage();
 }
 document.querySelectorAll('.nav-btn, .sidebar-nav-btn').forEach(b => b.addEventListener('click', () => switchSection(b.dataset.section)));
+
+// ===== FAVORITES (starred playlists) =====
+function renderFavorites() {
+  if (!HOUSE) return;
+  const stars = HOUSE.starred_playlists || [];
+  if (!stars.length) { $('favorites-row').innerHTML = ''; return; }
+  // What's currently playing across the house?
+  const playing = new Set();
+  for (const slug of Object.keys(HOUSE.rooms)) {
+    const st = getState(slug, 'music')?.state ?? {};
+    if (st.playState === 'PLAYING' || st.playing === true) {
+      const q = (st.track || '') + ' ' + (st.artist || '');
+      playing.add(q.toLowerCase());
+    }
+  }
+  const isPlaying = (sp) => {
+    const needle = (sp.query || sp.label).toLowerCase();
+    for (const t of playing) if (t.includes(needle.split(' ')[0])) return true;
+    return false;
+  };
+  const phrase = (sp) => {
+    if (sp.rooms?.length === 1) {
+      return 'play ' + sp.query + ' in the ' + (HOUSE.rooms[sp.rooms[0]]?.label || sp.rooms[0]).toLowerCase()
+        + (sp.volume != null ? ' at volume ' + sp.volume : '');
+    }
+    if (sp.rooms?.length > 1) {
+      const labels = sp.rooms.map(r => (HOUSE.rooms[r]?.label || r).toLowerCase()).join(' and ');
+      return 'play ' + sp.query + ' in the ' + labels + (sp.volume != null ? ' at volume ' + sp.volume : '');
+    }
+    return 'play ' + sp.query;
+  };
+  const subFor = (sp) => {
+    const parts = [];
+    if (sp.rooms?.length) parts.push(sp.rooms.length === 1 ? (HOUSE.rooms[sp.rooms[0]]?.label || sp.rooms[0]) : sp.rooms.length + ' rooms');
+    if (sp.volume != null) parts.push('vol ' + sp.volume);
+    if (sp.mood) parts.push(sp.mood);
+    return parts.join(' · ');
+  };
+  $('favorites-row').innerHTML = stars.map(sp => {
+    const active = isPlaying(sp);
+    return '<button class="fav-chip ' + (active ? 'playing' : '') + '" onclick="quickSend(' + jstr(phrase(sp)) + ')">' +
+      '<span class="fav-chip-icon">' + SVG.music + '</span>' +
+      '<span class="fav-chip-meta">' +
+        '<span class="fav-chip-label">' + esc(sp.label) + '</span>' +
+        '<span class="fav-chip-sub">' + esc(subFor(sp)) + '</span>' +
+      '</span>' +
+    '</button>';
+  }).join('');
+}
 
 // ===== ROOM helpers =====
 function isHvacOnly(slug) {
@@ -1781,60 +1976,218 @@ window.setCoolSetpoint = (slug, v) => { const d = HOUSE.rooms[slug].devices.find
 window.setAvVolume = (slug, v) => { applyOptimistic(slug, 'av', { volume: +v }); dbAv(slug, v); };
 
 // ===== ACTIVITY =====
+const ACT_ICON = {
+  music:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 18V6l10-2v12" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" stroke="currentColor" stroke-width="1.8"/><circle cx="16" cy="16" r="3" stroke="currentColor" stroke-width="1.8"/></svg>',
+  light:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.6.5-1 1.2-1 2v.5H9v-.5c0-.8-.4-1.5-1-2A6 6 0 0 1 12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  warm:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3s5 5.4 5 9a5 5 0 0 1-10 0c0-3.6 5-9 5-9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  cool:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18M5 5l14 14M19 5 5 19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  av:       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" stroke-width="1.8"/></svg>',
+  sky:      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2M12 19v2M21 12h-2M5 12H3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  voice:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  sched:    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  dot:      '<svg width="6" height="6" viewBox="0 0 6 6"><circle cx="3" cy="3" r="3" fill="currentColor"/></svg>',
+};
 function translateEvent(e) {
-  const ts = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const dt = new Date(e.ts);
+  const ts = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   if (e.kind.startsWith('state:')) {
     const path = e.kind.slice(6);
     const [slug, device] = path.split('/');
     const label = HOUSE?.rooms[slug]?.label || slug;
     const s = e.payload?.state ?? {};
-    let text, verb;
+    const source = e.payload?.source;
+    let text, kind = 'state', icon = ACT_ICON.dot;
     if (device === 'music') {
-      if (s.playState === 'PLAYING' || s.playing === true) { text = 'music started'; verb = 'music'; }
-      else if (s.playState === 'PAUSED_PLAYBACK' || s.playing === false) text = 'music paused';
-      else if (typeof s.volume === 'number') text = 'volume → ' + s.volume;
+      if (s.playState === 'PLAYING' || s.playing === true) { text = 'music started' + (s.track ? ' — ' + s.track : ''); icon = ACT_ICON.music; kind = 'music'; }
+      else if (s.playState === 'PAUSED_PLAYBACK' || s.playing === false) { text = 'music paused'; icon = ACT_ICON.music; kind = 'music'; }
+      else if (typeof s.volume === 'number') { text = 'volume → ' + s.volume; icon = ACT_ICON.music; kind = 'music'; }
     } else if (device === 'lights') {
-      if (s.on === true) text = 'lights → ' + (s.brightness ?? '?') + '%';
-      else if (s.on === false) text = 'lights off';
-    } else if (device === 'skylight') text = s.open ? 'skylight opened' : 'skylight closed';
-    else if (device === 'av') text = s.power ? 'watching ' + (s.current_source || 'AV') : 'AV off';
-    else if (device === 'tv') text = s.on ? 'TV on' : 'TV off';
+      if (s.on === true) { text = 'lights → ' + (s.brightness ?? '?') + '%'; icon = ACT_ICON.light; kind = 'light'; }
+      else if (s.on === false) { text = 'lights off'; icon = ACT_ICON.light; kind = 'light'; }
+    } else if (device === 'skylight') { text = s.open ? 'skylight opened' : 'skylight closed'; icon = ACT_ICON.sky; }
+    else if (device === 'av') { text = s.power ? 'watching ' + (s.current_source || 'AV') : 'AV off'; icon = ACT_ICON.av; }
+    else if (device === 'tv') { text = s.on ? 'TV on' : 'TV off'; icon = ACT_ICON.av; }
     else if (device === 'hot_tub' || device === 'pool') {
-      if (s.mode === 'heat') { text = 'warming'; verb = 'warm'; }
-      else if (s.target_f != null) text = 'target ' + s.target_f + '°';
+      if (s.mode === 'heat') { text = 'warming to ' + (s.target_f ?? '?') + '°'; icon = ACT_ICON.warm; kind = 'warm'; }
+      else if (s.target_f != null) { text = 'target ' + s.target_f + '°'; icon = ACT_ICON.warm; kind = 'warm'; }
+      else if (s.mode) { text = (device === 'hot_tub' ? 'hot tub' : 'pool') + ' → ' + s.mode; icon = ACT_ICON.warm; kind = 'warm'; }
+    } else if (device === 'fan') {
+      if (s.on === true) { text = 'fan on' + (s.level != null ? ' · ' + s.level + '%' : ''); icon = ACT_ICON.cool; kind = 'cool'; }
+      else if (s.on === false) { text = 'fan off'; icon = ACT_ICON.cool; kind = 'cool'; }
     } else if (device.startsWith('hvac') || device === 'climate') {
-      if (s.hvac_state === 'heating') { text = 'heating'; verb = 'warm'; }
-      else if (s.hvac_state === 'cooling') { text = 'cooling'; }
+      if (s.hvac_state === 'heating') { text = 'heating'; icon = ACT_ICON.warm; kind = 'warm'; }
+      else if (s.hvac_state === 'cooling') { text = 'cooling'; icon = ACT_ICON.cool; kind = 'cool'; }
       else if (s.mode) text = 'mode → ' + s.mode;
     }
     if (!text) return null;
-    return { ts, room: label, text, verb };
+    return { dt, ts, room: label, text, kind, icon, channel: 'state', actor: source || null };
   }
-  if (e.kind === 'event:schedule_fired') return { ts, room: 'Schedule', text: (e.payload?.action || 'job') + ' fired', verb: 'music' };
-  if (e.kind === 'event:schedule_cancelled') return { ts, room: 'Schedule', text: 'cancelled' };
-  if (e.kind === 'event:schedule_snoozed') return { ts, room: 'Schedule', text: 'snoozed ' + (e.payload?.by_minutes ?? '?') + 'm' };
+  if (e.kind === 'event:schedule_fired') return { dt, ts, room: 'Schedule', text: (e.payload?.action || 'job') + ' fired', kind: 'sched', icon: ACT_ICON.sched, channel: 'schedule', actor: 'scheduled', failed: e.payload?.ok === false };
+  if (e.kind === 'event:schedule_cancelled') return { dt, ts, room: 'Schedule', text: 'job cancelled', kind: 'sched', icon: ACT_ICON.sched, channel: 'schedule', actor: e.payload?.by || null };
+  if (e.kind === 'event:schedule_snoozed') return { dt, ts, room: 'Schedule', text: 'snoozed ' + (e.payload?.by_minutes ?? '?') + 'm', kind: 'sched', icon: ACT_ICON.sched, channel: 'schedule' };
+  if (e.kind === 'event:voice_done') {
+    const ok = e.payload?.ok !== false;
+    const tag = e.payload?.terse ? ' · terse' : '';
+    return { dt, ts, room: (e.payload?.source || 'voice'), text: '"' + (e.payload?.text || '') + '" (' + e.payload?.latencyMs + 'ms' + tag + ')', kind: 'voice', icon: ACT_ICON.voice, channel: 'voice', actor: e.payload?.source || 'alexa', failed: !ok };
+  }
+  if (e.kind === 'event:voice_async') {
+    return { dt, ts, room: (e.payload?.source || 'voice'), text: '"' + (e.payload?.text || '') + '" (async ack)', kind: 'voice', icon: ACT_ICON.voice, channel: 'voice', actor: e.payload?.source || 'alexa' };
+  }
+  if (e.kind === 'event:voice_blocked') {
+    return { dt, ts, room: (e.payload?.source || 'voice'), text: 'blocked: "' + (e.payload?.text || '') + '"', kind: 'voice', icon: ACT_ICON.voice, channel: 'voice', actor: e.payload?.source || 'alexa', failed: true };
+  }
   return null;
 }
+
+const ACTIVITY_FILTERS = [
+  { id: 'all',      label: 'All' },
+  { id: 'voice',    label: 'Voice' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'state',    label: 'Devices' },
+];
+let ACTIVITY_FILTER = 'all';
+function renderActivityFilterRow() {
+  const el = $('activity-filter-row');
+  if (!el) return;
+  el.innerHTML = ACTIVITY_FILTERS.map(f =>
+    '<button class="filter-chip ' + (f.id === ACTIVITY_FILTER ? 'active' : '') + '" onclick="window.setActivityFilter(' + jstr(f.id) + ')">' + esc(f.label) + '</button>'
+  ).join('');
+}
+window.setActivityFilter = (id) => { ACTIVITY_FILTER = id; renderActivityFilterRow(); renderActivity(); };
+
+function groupActivity(items) {
+  // Group by hour bucket so long lists are scannable.
+  const groups = [];
+  let lastKey = null;
+  for (const it of items) {
+    const key = it.dt.toLocaleString([], { weekday: 'short', hour: '2-digit', hour12: false }).replace(/:\d+/, ':00');
+    if (key !== lastKey) { groups.push({ head: key, items: [] }); lastKey = key; }
+    groups[groups.length - 1].items.push(it);
+  }
+  return groups;
+}
+
 async function renderActivity() {
   try {
-    const { events } = await (await fetch('/events?limit=40')).json();
+    const { events } = await (await fetch('/events?limit=120')).json();
     for (const e of events) {
       const t = new Date(e.ts).getTime();
       if (t > LAST_EVENT_TS && e.kind === 'event:schedule_fired') toast('⏰ ' + (e.payload?.action || 'Job') + ' fired');
     }
     if (events.length) LAST_EVENT_TS = Math.max(...events.map(e => new Date(e.ts).getTime()));
-    const items = events.map(translateEvent).filter(Boolean);
-    const html = items.length ? items.map(i => {
-      const vc = i.verb === 'music' ? 'verb-music' : i.verb === 'warm' ? 'verb-warm' : 'verb-default';
-      return '<div class="activity-item"><span class="activity-time">' + esc(i.ts) + '</span><span class="activity-text">' + esc(i.room) + ' <span class="' + vc + '">' + esc(i.text) + '</span></span></div>';
-    }).join('') : '<div class="empty">no events yet</div>';
+    let items = events.map(translateEvent).filter(Boolean);
+    if (ACTIVITY_FILTER !== 'all') items = items.filter(i => i.channel === ACTIVITY_FILTER);
+    renderActivityFilterRow();
+    const rowHtml = (i) =>
+      '<div class="activity-item">' +
+        '<span class="activity-time">' + esc(i.ts) + '</span>' +
+        '<span class="activity-icon ' + esc(i.kind) + (i.failed ? ' activity-failed' : '') + '">' + i.icon + '</span>' +
+        '<span class="activity-text">' + esc(i.room) + ' · ' + (i.failed ? '<span class="activity-failed">' : '<span>') + esc(i.text) + '</span>' +
+          (i.actor ? '<span class="activity-actor">' + esc(i.actor) + '</span>' : '') +
+        '</span>' +
+      '</div>';
+    const groups = groupActivity(items);
+    const html = items.length
+      ? groups.map(g => '<div class="activity-group-head">' + esc(g.head) + '</div>' + g.items.map(rowHtml).join('')).join('')
+      : '<div class="empty">no events match this filter</div>';
     $('activity-feed').innerHTML = html;
-    $('rail-activity').innerHTML = items.length ? items.slice(0, 8).map(i => {
-      const vc = i.verb === 'music' ? 'verb-music' : i.verb === 'warm' ? 'verb-warm' : 'verb-default';
-      return '<div class="rail-act-row"><span class="rail-act-time">' + esc(i.ts) + '</span><span class="rail-act-text">' + esc(i.room) + ' <span class="' + vc + '">' + esc(i.text) + '</span></span></div>';
-    }).join('') : '<div class="empty">no events yet</div>';
+    // Desktop rail: terser, no headers.
+    $('rail-activity').innerHTML = items.length
+      ? items.slice(0, 10).map(i => {
+        const verb = i.kind === 'music' ? 'verb-music' : i.kind === 'warm' ? 'verb-warm' : 'verb-default';
+        return '<div class="rail-act-row"><span class="rail-act-time">' + esc(i.ts) + '</span><span class="rail-act-text">' + esc(i.room) + ' <span class="' + verb + '">' + esc(i.text) + '</span></span></div>';
+      }).join('')
+      : '<div class="empty">no events yet</div>';
   } catch {}
 }
+
+// ===== USAGE =====
+let USAGE_WINDOW = 'last_24h';
+let USAGE_CACHE = null;
+async function fetchUsage() {
+  try {
+    const r = await fetch('/api-usage?limit=100');
+    USAGE_CACHE = await r.json();
+  } catch { USAGE_CACHE = null; }
+}
+function compactNum(n) {
+  if (n == null) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
+  return String(n);
+}
+function fmtMoney(usd) {
+  if (usd == null) return '$0';
+  if (usd < 0.01) return '$' + usd.toFixed(4);
+  if (usd < 1) return '$' + usd.toFixed(3);
+  return '$' + usd.toFixed(2);
+}
+function windowLabel(id) {
+  return { last_hour: 'past hour', last_24h: 'past 24h', last_7d: 'past 7d', since_boot: 'since boot' }[id] || id;
+}
+async function renderUsage() {
+  if (!USAGE_CACHE) await fetchUsage();
+  if (!USAGE_CACHE) {
+    $('usage-summary').innerHTML = '<div class="empty">no usage data yet — send a few messages first</div>';
+    $('usage-table').innerHTML = '';
+    $('usage-foot').innerHTML = '';
+    return;
+  }
+  // Active window tab
+  document.querySelectorAll('.usage-window-tab').forEach(b => b.classList.toggle('active', b.dataset.window === USAGE_WINDOW));
+  const w = USAGE_CACHE.windows[USAGE_WINDOW] || USAGE_CACHE.windows.last_24h;
+  const cacheHit = Math.round((w.cacheHitRatio || 0) * 100);
+  $('usage-summary').innerHTML =
+    '<div class="usage-card cost">' +
+      '<div class="usage-card-label">Spend</div>' +
+      '<div class="usage-card-value">' + fmtMoney(w.estCostUsd) + '</div>' +
+      '<div class="usage-card-sub">' + windowLabel(USAGE_WINDOW) + '</div>' +
+    '</div>' +
+    '<div class="usage-card">' +
+      '<div class="usage-card-label">LLM calls</div>' +
+      '<div class="usage-card-value">' + w.llmCalls + '</div>' +
+      '<div class="usage-card-sub">' + w.fastCalls + ' fast-path · ' + w.calls + ' total</div>' +
+    '</div>' +
+    '<div class="usage-card">' +
+      '<div class="usage-card-label">Tokens</div>' +
+      '<div class="usage-card-value">' + compactNum(w.inputTokens + w.outputTokens) + '</div>' +
+      '<div class="usage-card-sub">' + compactNum(w.inputTokens) + ' in · ' + compactNum(w.outputTokens) + ' out</div>' +
+    '</div>' +
+    '<div class="usage-card">' +
+      '<div class="usage-card-label">Cache hit</div>' +
+      '<div class="usage-card-value">' + cacheHit + '%</div>' +
+      '<div class="usage-card-sub">' + compactNum(w.cacheReadInputTokens) + ' read · ' + compactNum(w.cacheCreationInputTokens) + ' write</div>' +
+      '<div class="usage-bar"><div class="usage-bar-fill" style="width:' + cacheHit + '%"></div></div>' +
+    '</div>';
+
+  // Recent calls table
+  const recent = USAGE_CACHE.recent || [];
+  const rows = recent.length ? recent.map(c => {
+    const t = new Date(c.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const tokens = compactNum((c.inputTokens || 0) + (c.outputTokens || 0));
+    const cost = fmtMoney(c.estCostUsd || 0);
+    return '<div class="usage-row">' +
+      '<div class="usage-row-route ' + esc(c.route) + '">' + esc(c.route) + ' · ' + t + '</div>' +
+      '<div class="usage-row-text" title="' + esc(c.text) + '">' + esc(c.text) + (c.toolCalls ? ' <span style="color:var(--text-faint)">· ' + c.toolCalls + ' tool</span>' : '') + '</div>' +
+      '<div class="usage-row-tokens">' + tokens + '</div>' +
+      '<div class="usage-row-cost">' + cost + '</div>' +
+    '</div>';
+  }).join('') : '<div class="usage-row"><div class="usage-row-text empty" style="grid-column: 1/-1">no calls recorded yet</div></div>';
+  $('usage-table').innerHTML =
+    '<div class="usage-row head"><div>Route · time</div><div>Request</div><div style="text-align:right">Tokens</div><div style="text-align:right">Cost</div></div>' +
+    rows;
+
+  // Footer: pricing assumptions + boot note
+  const p = USAGE_CACHE.pricing || {};
+  $('usage-foot').innerHTML =
+    'Estimates use ' + fmtMoney(p.input_per_mtok) + '/Mtok in · ' + fmtMoney(p.output_per_mtok) + '/Mtok out · ' +
+    fmtMoney(p.cache_write_per_mtok) + '/Mtok cache-write · ' + fmtMoney(p.cache_read_per_mtok) + '/Mtok cache-read. ' +
+    'Counters reset on brain restart.';
+}
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('.usage-window-tab');
+  if (t) { USAGE_WINDOW = t.dataset.window; renderUsage(); }
+});
 
 // ===== SEARCH =====
 $('search-input')?.addEventListener('input', (e) => {
@@ -2130,6 +2483,7 @@ function renderAll() {
   renderHero();
   renderQuickRow();
   renderNowRow();
+  renderFavorites();
   renderClimate();
   renderRooms();
   renderSpaces();
@@ -2153,6 +2507,12 @@ async function refresh() {
     if (allMatch) delete OPTIMISTIC[key];
   }
   renderAll(); renderSchedule(); renderActivity();
+  // Refresh usage in the background so the Usage tab is fresh when opened,
+  // but only re-render if it's visible — saves churn.
+  fetchUsage().then(() => {
+    const sec = document.querySelector('.section.usage');
+    if (sec && sec.classList.contains('active')) renderUsage();
+  });
 }
 async function init() {
   try { HOUSE = await (await fetch('/house')).json(); }
