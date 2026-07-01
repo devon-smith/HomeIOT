@@ -22,7 +22,7 @@ week of calendar lag — start that first.
 
 - [ ] Anthropic key generated and dropped in `.env`
 - [ ] Mac mini IP reserved on router
-- [ ] `docker compose up -d` runs cleanly (`mqtt://localhost:1883`, `postgres://localhost:5432`, `redis://localhost:6379` all responsive)
+- [ ] `docker compose up -d` runs cleanly (`mqtt://localhost:1883`, `postgres://localhost:5434`, `redis://localhost:6379` all responsive)
 - [ ] `pnpm install && pnpm prisma migrate dev` succeeds
 - [ ] `pnpm dev` starts and `curl http://localhost:3000/healthz` returns `{brain: "ok", postgres: "ok"}`
 

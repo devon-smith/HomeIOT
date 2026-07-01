@@ -210,7 +210,7 @@ third is mine.
 | Branch | `claude/admiring-planck-CwkwR` |
 | Dashboard | `http://opens-mac-mini:3000/` (via Tailscale) or `http://localhost:3000` |
 | Brain HTTP | port 3000 (Fastify; `/healthz`, `/world`, `/events`, `/schedule`, `/message`, `/` dashboard) |
-| MQTT / Postgres / Redis | localhost-only: 1883 / 5432 / 6379 |
+| MQTT / Postgres / Redis | localhost-only: 1883 / 5434 / 6379 |
 | Start everything | `./scripts/run-all.sh` → tmux session `brain` |
 | Stop everything | `tmux kill-session -t brain` |
 | Tailnet owner | home manager (andy@) — ACL changes go through him |

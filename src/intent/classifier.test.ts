@@ -34,6 +34,7 @@ const house: House = {
       label: "Backyard",
       devices: {
         hot_tub: { adapter: "iaqualink", config: { system: "spa" } },
+        pool: { adapter: "iaqualink", config: { system: "pool" } },
         fountain: { adapter: "tuya", config: { kind: "switch" } },
       },
     },
@@ -374,6 +375,16 @@ describe("classifier — climate", () => {
     const r = run("turn off the hot tub");
     assert.equal(r?.patternName, "climate_off");
     assert.deepEqual(r?.toolCall.args, { zone: "hot_tub", mode: "off" });
+  });
+  it("matches pool heater off wording", () => {
+    const r = run("turn off the pool heater");
+    assert.equal(r?.patternName, "climate_off");
+    assert.deepEqual(r?.toolCall.args, { zone: "pool", mode: "off" });
+  });
+  it("matches HVAC air-conditioning off wording", () => {
+    const r = run("turn off the upstairs air conditioning");
+    assert.equal(r?.patternName, "climate_off");
+    assert.deepEqual(r?.toolCall.args, { zone: "hvac_upstairs", mode: "off" });
   });
   it("does not treat non-climate switches as climate", () => {
     const r = run("turn off the fountain");
