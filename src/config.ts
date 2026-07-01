@@ -9,7 +9,7 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
 
   MQTT_URL: z.string().default("mqtt://localhost:1883"),
-  DATABASE_URL: z.string().default("postgresql://home_brain:home_brain@localhost:5432/home_brain?schema=public"),
+  DATABASE_URL: z.string().default("postgresql://home_brain:home_brain@localhost:5434/home_brain?schema=public"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
   ANTHROPIC_API_KEY: z.string().optional(),

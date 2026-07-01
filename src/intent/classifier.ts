@@ -112,7 +112,12 @@ function findDeviceLocation(device: string, house: House): { room: string; devic
 
 function resolveClimateZone(input: string | undefined, house: House, includeRoomMembership = true): string | null {
   if (!input) return null;
-  const slug = normalizeSlug(input.replace(/\btemperature\b/gi, "").trim());
+  const slug = normalizeSlug(
+    input
+      .replace(/\btemperature\b/gi, "")
+      .replace(/\b(?:air\s*conditioning|a\/c|ac|heater|heat|cooling|hvac|thermostat)\b/gi, "")
+      .trim(),
+  );
   const room = resolveRoom(input, house);
   const hvacZones = house.hvac_zones ?? {};
 
@@ -126,6 +131,7 @@ function resolveClimateZone(input: string | undefined, house: House, includeRoom
     }
   }
 
+  if (findDeviceLocation(slug, house)) return slug;
   return resolveDeviceSlug(input, house);
 }
 
