@@ -95,10 +95,10 @@ Each entry above lands as one `schedule_action` invocation. Examples
 (send via voice or paste into the dashboard NL bar):
 
 ```
-ask natasha brain to dim the house to 10% then off every day at 1am
-ask natasha brain to warm the hot tub to 102 every weekday at 4:30pm
-ask natasha brain to dim the kitchen to 40 and play dinner jazz at 6pm on weekdays
-ask natasha brain to close all skylights 15 minutes before sunset
+ask smart home to dim the house to 10% then off every day at 1am
+ask smart home to warm the hot tub to 102 every weekday at 4:30pm
+ask smart home to dim the kitchen to 40 and play dinner jazz at 6pm on weekdays
+ask smart home to close all skylights 15 minutes before sunset
 ```
 
 The planner translates each into a `schedule_action({when, recurrence,

@@ -1,11 +1,11 @@
-# Home Brain — Alexa Custom Skill
+# Smart Home — Alexa Custom Skill
 
 This is the **skill backend** that forwards every voice command to your local
 Home Brain `/interpret` endpoint. The brain does the interpretation; Alexa
 just provides the wake word, ASR, and TTS.
 
-> *"Alexa, ask Home Brain to turn off the kitchen lights."*  
-> *"Alexa, ask Home Brain to play smooth jazz in the family room at twenty five."*
+> *"Alexa, ask Smart Home to turn off the kitchen lights."*
+> *"Alexa, ask Smart Home to play smooth jazz in the family room at twenty five."*
 
 ## What's in here
 
@@ -35,11 +35,11 @@ alexa-skill/
 ## Deploy via Alexa-hosted Lambda (recommended — free, no AWS account)
 
 1. https://developer.amazon.com/alexa/console/ask → **Create Skill**.
-2. Skill name: **Home Brain** · Locale: **English (US)**.
+2. Skill name: **Smart Home** · Locale: **English (US)**.
 3. Experience type: **Other**, model: **Custom**, hosting: **Alexa-hosted (Node.js)**.
 4. Click **Create skill** → **Start from scratch**.
 5. Once created, go to:
-   - **Build → Invocation** — set invocation name to `home brain` (must be 2+ words).
+   - **Build → Invocation** — set invocation name to `smart home` (must be 2+ words).
    - **Build → JSON Editor** — paste the contents of
      `skill-package/interactionModels/custom/en-US.json` over the default.
      Save Model → Build Model.
@@ -58,7 +58,7 @@ alexa-skill/
      vars), delete `config.js` and set the same keys as env vars instead —
      `index.js` reads from either source.
 7. **Test** tab — set the tester to **Development**. Type or speak
-   *"ask natasha brain to turn off the kitchen lights"* — you should hear
+   *"ask smart home to turn off the kitchen lights"* — you should hear
    "On it." followed by the brain's spoken response.
 
 ## Test it on a real Echo
@@ -122,7 +122,7 @@ than voice.
 
 ## Troubleshooting
 
-- *"Home Brain didn't respond in time"* — check the Lambda's CloudWatch logs
+- *"Smart Home didn't respond in time"* — check the Lambda's CloudWatch logs
   (Code → Logs). Usually a missing env var or the brain URL not reachable
   from AWS.
 - *"There was a problem with the requested skill's response"* — usually a

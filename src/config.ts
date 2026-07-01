@@ -24,7 +24,7 @@ const schema = z.object({
 
   // Voice friction reduction.
   //   HB_VOICE_KEEP_OPEN — Alexa session stays open after a command so the user
-  //                        can issue a follow-up without re-prefixing "ask natasha brain".
+  //                        can issue a follow-up without re-prefixing "ask smart home".
   //   HB_VOICE_TERSE     — collapse action confirmations to a 1-clause "OK." style so
   //                        the user can speak again faster. Query responses (no tool
   //                        calls) keep their full text either way.

@@ -149,7 +149,7 @@ front_gate:
 
 These map naturally to voice phrases the planner already understands:
 
-- *"Alexa, ask natasha brain to turn on the backyard fountain"*
+- *"Alexa, ask smart home to turn on the backyard fountain"*
 - *"...turn on the tree lights"*
 - *"...warm the sauna to 180"*
 

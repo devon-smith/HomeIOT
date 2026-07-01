@@ -27,6 +27,10 @@ rooms:
         adapter: control4
         config:
           c4_proxy_id: 0
+      skylight:
+        adapter: control4
+        config:
+          c4_skylight_ids: [0]  # fill in from Composer / discovery
 
   theater:
     label: Theater

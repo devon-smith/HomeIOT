@@ -77,18 +77,18 @@ Routines → + New → Voice trigger → Custom action**.
 
 | Alexa trigger | Custom Action |
 |---|---|
-| "Alexa, dinner jazz" | tell natasha brain to play cocktail jazz in the kitchen and dining room |
-| "Alexa, chill vibes" | tell natasha brain to play chill vibes 2025 in the kitchen and family room |
-| "Alexa, morning music" | tell natasha brain to play lofi morning in the kitchen and master bedroom |
-| "Alexa, yacht rock" | tell natasha brain to play yacht rock in the backyard, terrace, and pool house |
-| "Alexa, poolside" | tell natasha brain to play poolside miami in the pool house, oasis palms, and waterfall |
-| "Alexa, focus mode" | tell natasha brain to play classical focus in the family room at volume 18 |
-| "Alexa, workout time" | tell natasha brain to play feel good lofi in the workout room at volume 50 |
-| "Alexa, costes hour" | tell natasha brain to play cool costes in the kitchen and family room |
-| "Alexa, sunday chill" | tell natasha brain to play sunday morning chill in the kitchen and master bedroom |
-| "Alexa, deep house" | tell natasha brain to play thursday morning in the kitchen and family room |
-| "Alexa, holiday vibes" | tell natasha brain to play iheart christmas in the kitchen and family room |
-| "Alexa, music off" | tell natasha brain to pause all music |
+| "Alexa, dinner jazz" | ask smart home to play cocktail jazz in the kitchen and dining room |
+| "Alexa, chill vibes" | ask smart home to play chill vibes 2025 in the kitchen and family room |
+| "Alexa, morning music" | ask smart home to play lofi morning in the kitchen and master bedroom |
+| "Alexa, yacht rock" | ask smart home to play yacht rock in the backyard, terrace, and pool house |
+| "Alexa, poolside" | ask smart home to play poolside miami in the pool house, oasis palms, and waterfall |
+| "Alexa, focus mode" | ask smart home to play classical focus in the family room at volume 18 |
+| "Alexa, workout time" | ask smart home to play feel good lofi in the workout room at volume 50 |
+| "Alexa, costes hour" | ask smart home to play cool costes in the kitchen and family room |
+| "Alexa, sunday chill" | ask smart home to play sunday morning chill in the kitchen and master bedroom |
+| "Alexa, deep house" | ask smart home to play thursday morning in the kitchen and family room |
+| "Alexa, holiday vibes" | ask smart home to play iheart christmas in the kitchen and family room |
+| "Alexa, music off" | ask smart home to pause all music |
 
 ## Day-of-week morning Routines (optional)
 
@@ -97,10 +97,10 @@ naturally and are unambiguous:
 
 | Alexa trigger | Custom Action |
 |---|---|
-| "Alexa, tuesday morning" | tell natasha brain to play tuesday morning in the kitchen and master bedroom |
-| "Alexa, wednesday morning" | tell natasha brain to play wednesday morning in the kitchen and master bedroom |
-| "Alexa, thursday morning" | tell natasha brain to play thursday morning in the kitchen and master bedroom |
-| "Alexa, friday morning" | tell natasha brain to play friday morning in the kitchen and master bedroom |
+| "Alexa, tuesday morning" | ask smart home to play tuesday morning in the kitchen and master bedroom |
+| "Alexa, wednesday morning" | ask smart home to play wednesday morning in the kitchen and master bedroom |
+| "Alexa, thursday morning" | ask smart home to play thursday morning in the kitchen and master bedroom |
+| "Alexa, friday morning" | ask smart home to play friday morning in the kitchen and master bedroom |
 
 ## Library cleanup suggestions
 

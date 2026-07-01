@@ -6,6 +6,7 @@ import { type Scenes } from "../core/scenes.js";
 import { type Scheduler } from "../core/scheduler.js";
 import { type ToolCall, type ExecutionResult } from "./types.js";
 import { log } from "../core/log.js";
+import { authorizeToolForSource, sourceFromActor } from "../auth/source-authz.js";
 
 export interface ToolContext {
   bus: Bus;
@@ -46,6 +47,14 @@ export class ToolRegistry {
     const def = this.get(call.tool);
     if (!def) {
       return { tool: call.tool, ok: false, message: `unknown tool: ${call.tool}` };
+    }
+    const authz = authorizeToolForSource(call.tool, sourceFromActor(ctx.actor));
+    if (authz.decision !== "allow") {
+      return {
+        tool: call.tool,
+        ok: false,
+        message: authz.message ?? "That action is not allowed from this source.",
+      };
     }
     const parsed = def.schema.safeParse(call.args);
     if (!parsed.success) {
