@@ -301,7 +301,11 @@ function buildLightsQuery(roomInput: string | undefined, house: House): ToolCall
 
 function buildMusicQuery(roomInput: string | undefined, house: House): ToolCall | null {
   const room = resolveRoom(roomInput, house);
-  if (!room || !house.rooms[room]?.devices["music"]) return null;
+  if (!room) return null;
+  const devices = house.rooms[room]?.devices ?? {};
+  if (devices["av"]) return { tool: "query_state", args: { path: `${room}.av` } };
+  if (devices["tv"]) return { tool: "query_state", args: { path: `${room}.tv` } };
+  if (!devices["music"]) return null;
   return { tool: "query_state", args: { path: `${room}.music` } };
 }
 

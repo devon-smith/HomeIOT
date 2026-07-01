@@ -40,6 +40,7 @@ export const queryState: ToolDef<Args> = {
 
 function describeState(room: string, device: string, state: Record<string, unknown>): string {
   const prettyRoom = room.replace(/_/g, " ");
+  const prettyDevice = device.replace(/_/g, " ");
   if (/(sky_?light|blind|shade)/.test(device)) {
     const position = typeof state["position"] === "number" ? state["position"] : null;
     const open = state["open"];
@@ -66,13 +67,30 @@ function describeState(room: string, device: string, state: Record<string, unkno
     return playing ? `Music is playing in the ${prettyRoom}.` : `Nothing is playing in the ${prettyRoom}.`;
   }
 
+  if (device === "av" || device === "tv") {
+    const on = state["power"] === true || state["on"] === true;
+    const source = typeof state["current_source"] === "string"
+      ? state["current_source"]
+      : typeof state["input"] === "string"
+        ? state["input"]
+        : null;
+    const volume = typeof state["volume"] === "number" ? state["volume"] : null;
+    if (!on) return `Nothing is playing in the ${prettyRoom}.`;
+    const sourceText = source ? ` and playing ${source.replace(/_/g, " ")}` : "";
+    const volumeText = volume !== null ? ` at volume ${volume}` : "";
+    return `The ${prettyRoom} ${device.toUpperCase()} is on${sourceText}${volumeText}.`;
+  }
+
   const current = typeof state["current_f"] === "number" ? state["current_f"] : null;
   const target = typeof state["target_f"] === "number" ? state["target_f"] : null;
   if (current !== null || target !== null) {
     const parts: string[] = [];
     if (current !== null) parts.push(`${current} degrees`);
     if (target !== null) parts.push(`target ${target}`);
-    return `The ${prettyRoom} ${device.replace(/_/g, " ")} is ${parts.join(", ")}.`;
+    const label = device.startsWith("hvac_") && prettyRoom.endsWith(" hvac")
+      ? prettyRoom.toUpperCase()
+      : `${prettyRoom} ${prettyDevice}`;
+    return `The ${label} is ${parts.join(", ")}.`;
   }
 
   return `state for ${room}.${device}`;

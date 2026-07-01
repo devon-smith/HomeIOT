@@ -244,6 +244,12 @@ describe("classifier — status queries", () => {
     assert.deepEqual(r?.toolCall.args, { path: "kitchen.music" });
   });
 
+  it("matches theater playback state questions", () => {
+    const r = run("is anything playing in the theater");
+    assert.equal(r?.patternName, "query_music_playing");
+    assert.deepEqual(r?.toolCall.args, { path: "theater.av" });
+  });
+
   it("matches HVAC zone temperature questions", () => {
     const r = run("what's the temperature upstairs");
     assert.equal(r?.patternName, "query_climate_temperature");
