@@ -3,13 +3,13 @@
     "publishingInformation": {
       "locales": {
         "en-US": {
-          "name": "Home Brain",
+          "name": "Smart Home",
           "summary": "Natural-language control for the home — lights, music, climate, scenes, schedules.",
           "description": "Speak any home-control request — 'turn off the kitchen lights', 'play smooth jazz in the family room at 25', 'warm the hot tub to 102', 'movie night in the theater'. The skill forwards your words to your local Home Brain instance (running on a Mac mini at your home) which interprets and executes them across Sonos, Control4, iAquaLink, and other adapters.",
           "examplePhrases": [
-            "Alexa, ask Home Brain to turn off the kitchen lights",
-            "Alexa, ask Home Brain to play smooth jazz in the family room",
-            "Alexa, ask Home Brain to warm the hot tub to 102"
+            "Alexa, ask Smart Home to turn off the kitchen lights",
+            "Alexa, ask Smart Home to play smooth jazz in the family room",
+            "Alexa, ask Smart Home to warm the hot tub to 102"
           ],
           "keywords": ["smart home", "home automation", "lights", "music", "climate"],
           "smallIconUri": "",

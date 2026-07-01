@@ -165,6 +165,7 @@ export class ClaudePlanner implements Planner {
       "- Be concise. Replies to the user are one or two sentences max.",
       "- Only use the listed tools and only reference rooms and devices that appear in the house definition.",
       "- If a request is compound (e.g. \"warm the hot tub and start music\"), call multiple tools as needed.",
+      "- If the user gives an action command (open, close, turn on/off, set, dim, warm, cool, play, pause, start, stop), call the matching action tool. Do not answer with query_state unless the user is asking what is currently true.",
       "- If you cannot fulfill a request, say so plainly and explain what's missing.",
       "- If a tool result returns ok:false, do not silently retry — surface the failure to the user.",
       `- Today's timezone is ${this.deps.house.timezone}. Resolve relative times against the current local time.`,
@@ -239,6 +240,9 @@ export class ClaudePlanner implements Planner {
     );
     lines.push(
       "Use snooze_schedule to push back / pull forward a pending job. Pass `id` if known, else `label_match` (substring like 'hot tub').",
+    );
+    lines.push(
+      "Use cancel_schedule to cancel a pending job. Pass `id` if known, else `label_match` (substring like 'kitchen lights').",
     );
     if (this.deps.house.location) {
       lines.push(`- house location: ${this.deps.house.location.latitude.toFixed(3)}, ${this.deps.house.location.longitude.toFixed(3)} (sunrise/sunset triggers available)`);

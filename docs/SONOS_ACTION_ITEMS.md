@@ -137,18 +137,18 @@ Set up in Alexa app → More → Routines → + New → Voice trigger → Custom
 
 | Alexa trigger | Custom Action |
 |---|---|
-| "Alexa, morning coffee" | tell natasha brain to play lofi morning in the kitchen and master bedroom |
-| "Alexa, cooking" | tell natasha brain to play wednesday morning in the kitchen |
-| "Alexa, dinner jazz" | tell natasha brain to play cocktail jazz in the kitchen and dining room |
-| "Alexa, cocktail hour" | tell natasha brain to play costes twenty in the kitchen and dining room |
-| "Alexa, french brunch" | tell natasha brain to play french brunch in the kitchen and dining room |
-| "Alexa, chill vibes" | tell natasha brain to play chill vibes in the kitchen and family room |
-| "Alexa, backyard music" | tell natasha brain to play yacht rock in the backyard, terrace, and pool house |
-| "Alexa, poolside" | tell natasha brain to play poolside miami in the pool house, oasis palms, and waterfall |
-| "Alexa, focus mode" | tell natasha brain to play classical focus in the family room at volume 18 |
-| "Alexa, goodnight music" | tell natasha brain to play ondas theta in the master bedroom at volume 14 |
-| "Alexa, workout time" | tell natasha brain to play beast mode in the workout room |
-| "Alexa, party mode" | tell natasha brain to play mood booster in the kitchen, family room, and backyard at volume 42 |
+| "Alexa, morning coffee" | ask smart home to play lofi morning in the kitchen and master bedroom |
+| "Alexa, cooking" | ask smart home to play wednesday morning in the kitchen |
+| "Alexa, dinner jazz" | ask smart home to play cocktail jazz in the kitchen and dining room |
+| "Alexa, cocktail hour" | ask smart home to play costes twenty in the kitchen and dining room |
+| "Alexa, french brunch" | ask smart home to play french brunch in the kitchen and dining room |
+| "Alexa, chill vibes" | ask smart home to play chill vibes in the kitchen and family room |
+| "Alexa, backyard music" | ask smart home to play yacht rock in the backyard, terrace, and pool house |
+| "Alexa, poolside" | ask smart home to play poolside miami in the pool house, oasis palms, and waterfall |
+| "Alexa, focus mode" | ask smart home to play classical focus in the family room at volume 18 |
+| "Alexa, goodnight music" | ask smart home to play ondas theta in the master bedroom at volume 14 |
+| "Alexa, workout time" | ask smart home to play beast mode in the workout room |
+| "Alexa, party mode" | ask smart home to play mood booster in the kitchen, family room, and backyard at volume 42 |
 
 ## Refresh workflow
 

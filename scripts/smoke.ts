@@ -15,6 +15,8 @@
  *   §E  Scheduling — schedule_action fires a future set_climate via the
  *       in-memory MemoryScheduler; assertion verifies the scheduled action
  *       actually reached the iAquaLink adapter
+ *   §H  Skylight wire — set_skylight closes/opens the kitchen skylight
+ *       through the Control4 adapter
  *
  * Does not exercise: Claude planner, Postgres, Redis, BullMQ durability.
  * Run locally with `docker compose up` + `pnpm dev` for the full stack
@@ -407,6 +409,30 @@ async function main() {
       assert("fountain set_water_feature ok", r.ok);
       const s = r.state as Record<string, unknown> | undefined;
       assert("fountain on", s?.["on"] === true);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // §H — Skylight wire (Control4 cover via set_skylight)
+    // ──────────────────────────────────────────────────────────────────
+    log("\n=== §H: Skylight (set_skylight) ===");
+    {
+      const close = await registry.run(
+        { tool: "set_skylight", args: { room: "kitchen", action: "close" } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("kitchen skylight close ok", close.ok);
+      const closedState = close.state as Record<string, unknown> | undefined;
+      assert("kitchen skylight position == 0", closedState?.["position"] === 0);
+      assert("kitchen skylight open == false", closedState?.["open"] === false);
+
+      const open = await registry.run(
+        { tool: "set_skylight", args: { room: "kitchen", action: "open" } },
+        { bus, world: fakeWorld, house, scenes, scheduler, registry, actor: "owner" },
+      );
+      assert("kitchen skylight open ok", open.ok);
+      const openState = open.state as Record<string, unknown> | undefined;
+      assert("kitchen skylight position == 100", openState?.["position"] === 100);
+      assert("kitchen skylight open == true", openState?.["open"] === true);
     }
 
     console.log("");

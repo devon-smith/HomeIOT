@@ -45,6 +45,7 @@ EOF
 read -r -d '' SKYLIGHTS <<'EOF' || true
 open the kitchen skylights
 close the kitchen skylights
+close the sky light in the kitchen
 open the foyer skylight
 close the foyer skylight
 EOF
@@ -75,6 +76,35 @@ SUITES=("state" "lights" "climate" "skylights" "av" "music" "scenes" "scheduling
 PASS=0; FAIL=0; FAILED_LIST=()
 ts() { printf '\033[2m[%s]\033[0m' "$(date +%H:%M:%S)"; }
 
+requires_fast_route() {
+  case "$1" in
+    "is anything playing in the family room" | \
+    "turn the kitchen lights off" | \
+    "turn the kitchen lights on" | \
+    "dim the family room to 30" | \
+    "open the kitchen skylights" | \
+    "close the kitchen skylights" | \
+    "close the sky light in the kitchen" | \
+    "what's the temperature in the master bedroom" | \
+    "what's the temperature upstairs" | \
+    "set the upstairs to 70" | \
+    "set the downstairs to cool 72" | \
+    "play smooth jazz in the kitchen at 20" | \
+    "pause music in the kitchen" | \
+    "turn the theater on" | \
+    "turn off the theater" | \
+    "good morning" | \
+    "goodnight" | \
+    "turn off the kitchen lights in five minutes" | \
+    "cancel the kitchen lights schedule")
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 run_suite() {
   local name="$1" lines="$2"
   printf '\n\033[1;34m── %s ──\033[0m\n' "$name"
@@ -83,14 +113,46 @@ run_suite() {
     local out status
     out="$("$SCRIPT_DIR/test-interpret.sh" "$utter" 2>&1)" && status=$? || status=$?
     local body; body="$(printf '%s' "$out" | tail -1)"
-    local spoken; spoken="$(printf '%s' "$body" | python3 -c 'import sys,json
-try: print(json.loads(sys.stdin.read()).get("spoken","<no spoken>"))
-except: print("<unparseable>")' 2>/dev/null || echo "<error>")"
-    if [ $status -ne 0 ] || ! printf '%s' "$body" | grep -q '"status":"done"\|"status":"async"'; then
+    local parsed; parsed="$(printf '%s' "$body" | python3 -c 'import sys,json
+try:
+  d=json.loads(sys.stdin.read())
+  tools=[tc.get("tool","") for tc in d.get("toolCalls", []) if isinstance(tc, dict)]
+  has_action=any(t and t!="query_state" for t in tools)
+  print(json.dumps({
+    "spoken": d.get("spoken","<no spoken>"),
+    "status": d.get("status",""),
+    "route": d.get("route",""),
+    "tools": ",".join(tools),
+    "has_action": has_action,
+  }))
+except Exception:
+  print(json.dumps({"spoken":"<unparseable>","status":"","route":"","tools":"","has_action":False}))' 2>/dev/null || echo '{"spoken":"<error>","status":"","route":"","tools":"","has_action":false}')"
+    local spoken resp_status route tools has_action
+    spoken="$(printf '%s' "$parsed" | python3 -c 'import sys,json; print(json.load(sys.stdin)["spoken"])')"
+    resp_status="$(printf '%s' "$parsed" | python3 -c 'import sys,json; print(json.load(sys.stdin)["status"])')"
+    route="$(printf '%s' "$parsed" | python3 -c 'import sys,json; print(json.load(sys.stdin)["route"])')"
+    tools="$(printf '%s' "$parsed" | python3 -c 'import sys,json; print(json.load(sys.stdin)["tools"])')"
+    has_action="$(printf '%s' "$parsed" | python3 -c 'import sys,json; print("true" if json.load(sys.stdin)["has_action"] else "false")')"
+    local needs_action=1
+    [ "$name" = "STATE" ] && needs_action=0
+    local needs_fast=0
+    requires_fast_route "$utter" && needs_fast=1
+    local bad_action=0 bad_fast=0
+    if [ "$needs_action" -eq 1 ] && [ "$resp_status" = "done" ] && [ "$has_action" != "true" ]; then
+      bad_action=1
+    fi
+    if [ "$needs_fast" -eq 1 ] && { [ "$resp_status" != "done" ] || [ "$route" != "fast" ]; }; then
+      bad_fast=1
+    fi
+    if [ $status -ne 0 ] || { [ "$resp_status" != "done" ] && [ "$resp_status" != "async" ]; } || [ "$bad_action" -eq 1 ] || [ "$bad_fast" -eq 1 ]; then
       printf '  %s \033[1;31m✗\033[0m %-55s → %s\n' "$(ts)" "\"$utter\"" "$spoken"
+      [ "$bad_action" -eq 1 ] && printf '      expected action tool, got route=%s tools=%s\n' "$route" "${tools:-<none>}"
+      [ "$bad_fast" -eq 1 ] && printf '      expected fast done response, got status=%s route=%s tools=%s\n' "${resp_status:-<none>}" "${route:-<none>}" "${tools:-<none>}"
       FAIL=$((FAIL+1)); FAILED_LIST+=("$utter")
     else
-      printf '  %s \033[1;32m✓\033[0m %-55s → %s\n' "$(ts)" "\"$utter\"" "$spoken"
+      local suffix=""
+      [ -n "$route$tools" ] && suffix=" [${route:-?} ${tools:-no-tools}]"
+      printf '  %s \033[1;32m✓\033[0m %-55s → %s%s\n' "$(ts)" "\"$utter\"" "$spoken" "$suffix"
       PASS=$((PASS+1))
     fi
     sleep 0.3

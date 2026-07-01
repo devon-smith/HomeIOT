@@ -38,7 +38,7 @@ const schema = z
 
 type Args = z.infer<typeof schema>;
 
-const FORBIDDEN_NESTED = new Set(["schedule_action", "snooze_schedule"]);
+const FORBIDDEN_NESTED = new Set(["schedule_action", "snooze_schedule", "cancel_schedule"]);
 
 export const scheduleAction: ToolDef<Args> = {
   name: "schedule_action",

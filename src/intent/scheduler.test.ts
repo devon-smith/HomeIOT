@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { MemoryScheduler, type ScheduledJob } from "../core/scheduler.js";
 import { ToolRegistry, type ToolContext } from "./registry.js";
 import { scheduleAction } from "./tools/schedule_action.js";
+import { cancelSchedule } from "./tools/cancel_schedule.js";
 import { type House } from "../core/house.js";
 import { type Bus } from "../core/bus.js";
 import { type World } from "../core/world.js";
@@ -84,6 +85,7 @@ describe("schedule_action validation", () => {
   function makeRegistry(): ToolRegistry {
     const r = new ToolRegistry();
     r.register(scheduleAction);
+    r.register(cancelSchedule);
     // Stub set_climate so action validation succeeds
     r.register({
       name: "set_climate",
@@ -182,6 +184,46 @@ describe("schedule_action validation", () => {
     assert.match(result.message, /Scheduled 'warm hot tub'/);
     await sleep(150);
     assert.deepEqual(fired, ["set_climate"]);
+    await sched.close();
+  });
+
+  it("cancels a pending job by label match", async () => {
+    const r = makeRegistry();
+    const fired: string[] = [];
+    const sched = new MemoryScheduler(async (job) => {
+      fired.push(job.actions[0]!.tool);
+    });
+    await sched.schedule({
+      id: "lights-job",
+      fireAt: new Date(Date.now() + 100),
+      actions: [{ tool: "set_climate", args: { zone: "hot_tub", target_f: 102 } }],
+      actor: "test",
+      label: "turn off the kitchen lights in 5 minutes",
+    });
+
+    const result = await r.run(
+      { tool: "cancel_schedule", args: { label_match: "kitchen lights" } },
+      ctx(r, sched),
+    );
+
+    assert.equal(result.ok, true);
+    assert.match(result.message, /Cancelled 'turn off the kitchen lights in 5 minutes'/);
+    assert.deepEqual(await sched.list(), []);
+    await sleep(150);
+    assert.deepEqual(fired, []);
+    await sched.close();
+  });
+
+  it("reports when no schedule matches cancellation", async () => {
+    const r = makeRegistry();
+    const sched = new MemoryScheduler(async () => {});
+    const result = await r.run(
+      { tool: "cancel_schedule", args: { label_match: "kitchen lights" } },
+      ctx(r, sched),
+    );
+
+    assert.equal(result.ok, false);
+    assert.match(result.message, /no pending job matches 'kitchen lights'/);
     await sched.close();
   });
 });

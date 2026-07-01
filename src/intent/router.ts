@@ -37,7 +37,7 @@ export class Router {
       actor,
     };
 
-    const fast = classify(normalized, this.deps.house);
+    const fast = classify(normalized, this.deps.house, this.deps.scenes);
     if (fast) {
       log.info({ pattern: fast.patternName, tool: fast.toolCall.tool }, "fast-path matched");
       const results = await executeAll([fast.toolCall], this.deps.registry, ctx);
