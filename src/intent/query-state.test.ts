@@ -25,6 +25,12 @@ const snapshot: Record<string, Record<string, StateMessage>> = {
   backyard: {
     hot_tub: baseMsg({ current_f: 99, target_f: 102, mode: "heat" }),
   },
+  theater: {
+    av: baseMsg({ power: true, current_source: "apple_tv", volume: 35 }),
+  },
+  upstairs_hvac: {
+    hvac_upstairs: baseMsg({ current_f: 72 }),
+  },
 };
 
 function ctx(): ToolContext {
@@ -60,5 +66,15 @@ describe("query_state spoken summaries", () => {
   it("summarizes climate state", async () => {
     const result = await queryState.execute({ path: "backyard.hot_tub" }, ctx());
     assert.equal(result.message, "The backyard hot tub is 99 degrees, target 102.");
+  });
+
+  it("summarizes AV playback state", async () => {
+    const result = await queryState.execute({ path: "theater.av" }, ctx());
+    assert.equal(result.message, "The theater AV is on and playing apple tv at volume 35.");
+  });
+
+  it("summarizes HVAC state without repeating the device slug", async () => {
+    const result = await queryState.execute({ path: "upstairs_hvac.hvac_upstairs" }, ctx());
+    assert.equal(result.message, "The UPSTAIRS HVAC is 72 degrees.");
   });
 });
