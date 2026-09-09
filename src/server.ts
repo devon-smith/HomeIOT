@@ -9,10 +9,12 @@ import { loadScenes } from "./core/scenes.js";
 import { BullMQScheduler, MemoryScheduler, type Scheduler } from "./core/scheduler.js";
 import { sharedRedis, closeSharedRedis } from "./core/redis.js";
 import { verifyHmac } from "./auth/hmac.js";
-import { authorizeForSource, type Source } from "./auth/source-authz.js";
+import { type Source } from "./auth/source-authz.js";
 import { Router, ToolRegistry, registerTools, ClaudePlanner } from "./intent/index.js";
 import { type Planner } from "./intent/planner.js";
+import { recordApiCall, summarize, recent, totals } from "./core/api-metrics.js";
 import { DASHBOARD_HTML } from "./web/dashboard.js";
+import { handleVoiceInterpret } from "./voice/interpret.js";
 
 interface RecentEvent {
   ts: string;
@@ -183,6 +185,31 @@ self.addEventListener('fetch', e => {
       quick_actions: house.preferences?.quick_actions ?? [],
       moods: Object.keys(house.preferences?.music?.mood_playlists ?? {}),
       favorite_playlists: house.preferences?.music?.favorite_playlists ?? [],
+      starred_playlists: house.preferences?.music?.starred_playlists ?? [],
+    };
+  });
+
+  // GET /api-usage — Claude API call accounting for the dashboard's Usage tab.
+  // Returns rolling-window summaries (today / 7d / lifetime since boot) plus
+  // the most recent calls so the UI can list them. Reset on brain restart.
+  app.get("/api-usage", async (req) => {
+    const query = req.query as { limit?: string } | undefined;
+    const limit = Math.min(200, Math.max(1, parseInt(query?.limit ?? "50", 10) || 50));
+    const HOUR = 60 * 60 * 1000;
+    return {
+      windows: {
+        last_hour: summarize(HOUR),
+        last_24h: summarize(24 * HOUR),
+        last_7d: summarize(7 * 24 * HOUR),
+        since_boot: totals(),
+      },
+      pricing: {
+        input_per_mtok: config.HB_PRICE_INPUT_PER_MTOK,
+        output_per_mtok: config.HB_PRICE_OUTPUT_PER_MTOK,
+        cache_write_per_mtok: config.HB_PRICE_CACHE_WRITE_PER_MTOK,
+        cache_read_per_mtok: config.HB_PRICE_CACHE_READ_PER_MTOK,
+      },
+      recent: recent(limit),
     };
   });
 
@@ -243,6 +270,7 @@ self.addEventListener('fetch', e => {
     log.info({ text: body.text, actor }, "message received");
     const result = await router.handle(body.text, actor);
     log.info({ route: result.route, latencyMs: result.latencyMs }, "message handled");
+    trackUsage(result, body.text, actor);
     return {
       ok: result.results.every((r) => r.ok) || result.results.length === 0,
       route: result.route,
@@ -252,15 +280,31 @@ self.addEventListener('fetch', e => {
     };
   });
 
+  function trackUsage(result: Awaited<ReturnType<typeof router.handle>>, text: string, actor: string) {
+    const cs = result.cacheStats ?? {
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+    recordApiCall({
+      actor,
+      route: result.route,
+      text: text.length > 140 ? text.slice(0, 137) + "..." : text,
+      toolCalls: result.toolCalls.length,
+      latencyMs: result.latencyMs,
+      cacheCreationInputTokens: cs.cacheCreationInputTokens,
+      cacheReadInputTokens: cs.cacheReadInputTokens,
+      inputTokens: cs.inputTokens,
+      outputTokens: cs.outputTokens,
+    });
+  }
+
   // POST /interpret — voice-surface entrypoint (Alexa, Siri, future).
   // HMAC-signed, deduped via Redis on requestId, races the planner against
   // a deadline so the caller gets a spoken response within the voice SLA.
   // Returns {spoken, status, keepSessionOpen, reprompt} per the contract.
-  const SLOW = Symbol("slow");
-  const VOICE_DEDUPE_TTL_MS = 60_000;
-  const HARD_TIMEOUT_MS = 30_000; // upper bound even for the async branch
-
-  app.post("/interpret", { preHandler: verifyHmac }, async (req, reply) => {
+  app.post("/interpret", { preHandler: verifyHmac }, async (req) => {
     const body = req.body as {
       text?: string;
       source?: string;
@@ -270,95 +314,29 @@ self.addEventListener('fetch', e => {
       deadlineMs?: number;
     } | undefined;
 
-    if (!body?.text || !body.requestId) {
-      reply.code(400);
-      return { spoken: "Sorry, that came through garbled.", status: "error" };
+    const source = (body?.source ?? "alexa") as Source;
+    if (body?.text && body.requestId) {
+      log.info({ text: body.text, source, requestId: body.requestId }, "voice request");
     }
-
-    const source = (body.source ?? "alexa") as Source;
-    const deadlineMs = Math.min(
-      Math.max(500, body.deadlineMs ?? config.HB_VOICE_DEADLINE_MS),
-      HARD_TIMEOUT_MS,
-    );
-
-    // (a) Idempotency — Alexa retries with the same requestId; never double-execute.
-    const dedupeKey = `voice:req:${body.requestId}`;
-    const fresh = await sharedRedis().set(dedupeKey, "1", "PX", VOICE_DEDUPE_TTL_MS, "NX");
-    if (fresh !== "OK") {
-      log.info({ requestId: body.requestId, source }, "voice request deduplicated");
-      return { spoken: "Already on it.", status: "duplicate" };
-    }
-
-    // (b) Source-scoped pre-check. Cheap heuristic before the planner runs.
-    const guard = authorizeForSource(body.text, source);
-    if (guard.decision === "block") {
-      pushEvent("voice_blocked", { source, requestId: body.requestId, text: body.text, reason: guard.message });
-      return { spoken: guard.message ?? "That isn't allowed by voice.", status: "error" };
-    }
-
-    log.info({ text: body.text, source, requestId: body.requestId }, "voice request");
-
-    // (c) Run the planner; race it against the voice deadline.
-    const exec = router.handle(body.text, `voice:${source}`);
-    const timer = new Promise<typeof SLOW>((resolve) => setTimeout(() => resolve(SLOW), deadlineMs));
-
-    const winner = await Promise.race([exec, timer]);
-
-    if (winner === SLOW) {
-      // Let the planner keep running (floating promise). On reboot mid-plan
-      // we lose it — a known v0 gap; promoting to BullMQ continuation is the
-      // P5/P6-era follow-up.
-      exec.then(
-        (r) => log.info({ requestId: body.requestId, latencyMs: r.latencyMs }, "voice async finished"),
-        (err) => log.warn({ requestId: body.requestId, err: err?.message }, "voice async failed"),
-      );
-      const ack = ackForText(body.text);
-      pushEvent("voice_async", { source, requestId: body.requestId, text: body.text });
-      return { spoken: ack, status: "async" };
-    }
-
-    const result = winner;
-    const ok = result.results.every((r) => r.ok) || result.results.length === 0;
-    const spoken = ttsFriendly(result.response);
-    pushEvent("voice_done", {
-      source, requestId: body.requestId, text: body.text,
-      route: result.route, latencyMs: result.latencyMs, ok,
+    return await handleVoiceInterpret(body, {
+      router,
+      reserveRequest: async (requestId, ttlMs) => {
+        const fresh = await sharedRedis().set(`voice:req:${requestId}`, "1", "PX", ttlMs, "NX");
+        if (fresh !== "OK") {
+          log.info({ requestId, source }, "voice request deduplicated");
+          return false;
+        }
+        return true;
+      },
+      trackUsage,
+      pushEvent,
+      logAsync: (requestId, r) => log.info({ requestId, latencyMs: r.latencyMs }, "voice async finished"),
+      logAsyncError: (requestId, err) => log.warn({ requestId, err: err?.message }, "voice async failed"),
+      voiceDeadlineMs: config.HB_VOICE_DEADLINE_MS,
+      voiceTerse: config.HB_VOICE_TERSE,
+      voiceKeepOpen: config.HB_VOICE_KEEP_OPEN,
     });
-    return { spoken, status: ok ? "done" : "error", keepSessionOpen: false, reprompt: null };
   });
-
-  function ackForText(text: string): string {
-    const t = text.toLowerCase();
-    if (t.includes("movie night")) return "Setting up movie night.";
-    if (t.includes("goodnight") || t.includes("good night")) return "Saying goodnight.";
-    if (t.includes("good morning")) return "Starting the morning.";
-    if (t.includes("warm") && t.includes("hot tub")) return "Warming the hot tub.";
-    return "On it.";
-  }
-  function ttsFriendly(s: string): string {
-    // The planner writes for the chat/dashboard UI (markdown). Alexa/Siri
-    // speak the raw string, so strip formatting Alexa would mispronounce
-    // ("**73F**" -> "star star seventy three") and cap length for the
-    // voice SLA.
-    let out = (s || "").trim();
-    out = out
-      .replace(/\*\*([^*]+)\*\*/g, "$1")            // **bold**
-      .replace(/__([^_]+)__/g, "$1")                // __bold__
-      .replace(/\*([^*]+)\*/g, "$1")                // *italic*
-      .replace(/(^|\s)_([^_]+)_(?=\s|$)/g, "$1$2")  // _italic_ (word-bounded)
-      .replace(/~~([^~]+)~~/g, "$1")                // ~~strike~~
-      .replace(/`([^`]+)`/g, "$1")                  // `code`
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")      // [text](url) -> text
-      .replace(/^\s{0,3}#{1,6}\s+/gm, "")           // # headings
-      .replace(/^\s*[-*+]\s+/gm, "")                // bullet markers
-      .replace(/\s*\n+\s*/g, ". ")                  // newlines -> sentence breaks
-      .replace(/\.\s*\.\s*/g, ". ")                 // collapse doubled periods
-      .replace(/[ \t]{2,}/g, " ")                   // collapse runs of spaces
-      .trim();
-    if (out.length > 240) out = out.slice(0, 237).trim() + "...";
-    return out || "Done.";
-  }
-
   await app.listen({ port: config.PORT, host: "0.0.0.0" });
   log.info({ port: config.PORT }, "http listening");
 

@@ -11,6 +11,7 @@
 
 # Node
 node_modules/
+.pnpm-store/
 dist/
 *.tsbuildinfo
 
@@ -34,3 +35,8 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+# Design exports (kept locally, not version-controlled)
+*.zip
+Home Brain - *.html
+design_handoff_home_brain/

@@ -422,6 +422,41 @@ preferences:
       energy: lo-fi beats
       dinner: cocktail jazz
       morning: acoustic calm
+    # Per-mood volume override. Falls back to the room default if a mood has
+    # no entry here.
+    default_volume_by_mood:
+      chill: 22
+      focus: 18
+      background: 18
+      energy: 45
+      dinner: 28
+      morning: 25
+    # When a music-bearing scene is started by name with no room ("play
+    # dinner jazz", "start morning music"), the LLM uses these defaults.
+    default_rooms_by_scene:
+      dinner: [kitchen, dining_room]
+      morning: [kitchen, master_bedroom]
+      cooking: [kitchen]
+      cleaning: [kitchen, family_room, living_room]
+      backyard: [backyard, terrace, pool_house]
+      pool: [oasis_palms, waterfall, pool_house]
+      whole_house: [kitchen, family_room, living_room, dining_room, backyard, terrace]
+    # Surfaced in the dashboard's "Favorites" strip — one tap fires the same
+    # path as voice. Each entry can pin its own rooms + volume so a press
+    # immediately gives you the right vibe in the right space.
+    starred_playlists:
+      - { label: "Coffee Table Jazz", query: "coffee table jazz", mood: "background",
+          rooms: [kitchen, family_room], volume: 22 }
+      - { label: "Dinner Jazz",       query: "cocktail jazz",     mood: "dinner",
+          rooms: [kitchen, dining_room], volume: 28 }
+      - { label: "Backyard Vibes",    query: "acoustic chill",    mood: "chill",
+          rooms: [backyard, terrace, pool_house], volume: 35 }
+      - { label: "Workout",           query: "high energy mix",   mood: "energy",
+          rooms: [workout], volume: 55 }
+      - { label: "Focus",             query: "peaceful piano",    mood: "focus",
+          rooms: [family_room], volume: 18 }
+      - { label: "Morning",           query: "acoustic calm",     mood: "morning",
+          rooms: [kitchen, master_bedroom], volume: 22 }
   lights:
     default_brightness: 80
   # Buttons shown in the dashboard's "Quick actions" row. Each fires the

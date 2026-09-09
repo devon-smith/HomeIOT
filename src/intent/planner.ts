@@ -1,17 +1,12 @@
 import { type ToolContext } from "./registry.js";
-import { type ToolCall, type ExecutionResult } from "./types.js";
+import { type ToolCall, type ExecutionResult, type CacheStats } from "./types.js";
 
 /** Output from a single planning round-trip. */
 export interface PlannerOutput {
   toolCalls: ToolCall[];
   results: ExecutionResult[];
   response: string;
-  cacheStats?: {
-    cacheCreationInputTokens: number;
-    cacheReadInputTokens: number;
-    inputTokens: number;
-    outputTokens: number;
-  };
+  cacheStats?: CacheStats;
 }
 
 /**

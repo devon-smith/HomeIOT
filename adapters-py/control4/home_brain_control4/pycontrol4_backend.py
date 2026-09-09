@@ -82,7 +82,6 @@ class PyControl4Backend(Backend):
         self.poll_interval_s = poll_interval_s
         self.controller_match = controller_match.lower()
 
-        self._cloud_session: aiohttp.ClientSession | None = None
         self._director_session: aiohttp.ClientSession | None = None
         self._account: C4Account | None = None
         self._director: C4Director | None = None
@@ -135,7 +134,6 @@ class PyControl4Backend(Backend):
             self._fans[(f.room, f.device)] = list(f.fan_ids)
             self._fan_cache[(f.room, f.device)] = LightState(on=False, brightness=0, online=True)
 
-        self._cloud_session = aiohttp.ClientSession()
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
@@ -158,8 +156,8 @@ class PyControl4Backend(Backend):
         )
 
     async def _auth(self) -> None:
-        assert self._cloud_session is not None and self._director_session is not None
-        self._account = C4Account(self.email, self.password, self._cloud_session)
+        assert self._director_session is not None
+        self._account = C4Account(self.email, self.password)
         await self._account.get_account_bearer_token()
 
         raw = await self._account.get_account_controllers()
@@ -698,5 +696,3 @@ class PyControl4Backend(Backend):
                 pass
         if self._director_session is not None:
             await self._director_session.close()
-        if self._cloud_session is not None:
-            await self._cloud_session.close()
